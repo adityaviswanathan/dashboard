@@ -9,8 +9,9 @@ __author__ = 'Aditya Viswanathan'
 __email__ = 'aditya@adityaviswanathan.com'
 
 import re
+from decider import Decider
 
-class DateAxisDecider:
+class DateAxisDecider(Decider):
     months1 = set([
         'january',
         'february',
@@ -43,26 +44,19 @@ class DateAxisDecider:
         '(\d+/\d+/\d+)'
     ])
     formatted_patterns = set([
-        '({month} \d+)'
+        '({month} \d+)',
+        '(.*{month}.*)'
     ])
 
     @staticmethod
-    def score(regexp, cell):
+    def score(regstr, cell):
+        regexp = re.compile(regstr, re.IGNORECASE)
         match = re.search(regexp, cell)
-        match_prefix = re.search(regexp, cell)
+        match_prefix = re.match(regexp, cell)
         # If entry matches a date pattern, score high.
         if match is not None:
             return 2 if match_prefix is not None else 1
         return 0
-
-    def __init__(self, data):
-        self.data = data
-        self.entries_scores = []
-        self.top_indexes = []
-
-    def is_date_axis(self):
-        self.score_entries()
-        return len(self.top_indexes) > 0
 
     def score_cell(self, cell):
         entry_score = 0
@@ -72,24 +66,9 @@ class DateAxisDecider:
         for pattern in (DateAxisDecider.formatted_patterns |
                         DateAxisDecider.unformatted_patterns):
             if pattern in DateAxisDecider.formatted_patterns:
-                for mo in (DateAxisDecider.months1 | DateAxisDecider.months2):
-                    regexp = re.compile(pattern.format(month=mo), re.IGNORECASE)
-                    entry_score += self.score(regexp, cell)
+                for mo in (DateAxisDecider.months1 |
+                           DateAxisDecider.months2):
+                    entry_score += self.score(pattern.format(month=mo), cell)
             else:
-                regexp = re.compile(pattern, re.IGNORECASE)
-                entry_score += self.score(regexp, cell)
+                entry_score += self.score(pattern, cell)
         return entry_score
-
-    def score_entries(self):
-        for index, entries in enumerate(self.data):
-            # Score per-entries list is computed as the sum of all scores
-            # in the list normalized by the size of the list. This way, a
-            # single entry that has a very high score should not necessarily
-            # yield a high entries list score since its contribution is blended
-            # with that of the other entries in the list.
-            s = sum([self.score_cell(e) for e in entries]) / float(len(entries))
-            self.entries_scores.append(s)
-        top_score = max(self.entries_scores)
-        if top_score > 0.0:
-            self.top_indexes = [i for i, _ in enumerate(self.entries_scores)
-                                if self.entries_scores[i] == top_score]

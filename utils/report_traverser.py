@@ -11,7 +11,7 @@ __email__ = 'aditya@adityaviswanathan.com'
 
 import csv
 
-from utils.axis import Axis
+from axis import Axis
 
 class ReportTraverser:
     def __init__(

@@ -13,7 +13,7 @@ import csv
 import os
 import xlrd
 
-from utils import DateAxisDecider, ReportTraverser, Axis
+from utils import AxisDecision, DateAxisDecider, ReportTraverser, Axis
 
 OUT_FOLDER = 'out'
 
@@ -29,7 +29,7 @@ def convert_to_csv(path_name, file_name, ext, folder=''):
         if os.path.isfile(csv_file.name):
             print('Overwriting existing CSV file ' + csv_file_name + '.');
         csv_writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
-        print('Converting {name}.{ext} to CSV via temp file {csv}.'
+        print('Converting {name}.{ext} to CSV via temp file {csv}'
                .format(name=file_name, ext=ext, csv=csv_file_name))
         for row_index in range(sheet.nrows):
             csv_writer.writerow(sheet.row_values(row_index))
@@ -38,32 +38,6 @@ def convert_to_csv(path_name, file_name, ext, folder=''):
     else:
         raise Exception('Cannot convert file with extension {ext} to CSV'
                          .format(ext=ext))
-
-def axis_detection(file_name):
-    # Underlying data indexed by either row or col.
-    row_values = []
-    col_values = []
-    with open(file_name) as csv_file:
-        for row_index, row in enumerate(csv.reader(csv_file, delimiter=',')):
-            row_values.append([])
-            for col_index, col in enumerate(row):
-                row_values[row_index].append(col)
-                if len(col_values)-1 < col_index:
-                    col_values.append([])
-                col_values[col_index].append(col)
-    row_date_decider = DateAxisDecider(row_values)
-    col_date_decider = DateAxisDecider(col_values)
-    if row_date_decider.is_date_axis() and col_date_decider.is_date_axis():
-        row_index = row_date_decider.top_indexes[0]
-        col_index = col_date_decider.top_indexes[0]
-        if (row_date_decider.entries_scores[row_index] >
-            col_date_decider.entries_scores[col_index]):
-            return (Axis.ROW, row_date_decider)
-    elif row_date_decider.is_date_axis():
-        return (Axis.ROW, row_date_decider)
-    elif col_date_decider.is_date_axis():
-        return (Axis.COL, col_date_decider)
-    return (Axis.NONE, None)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -85,23 +59,14 @@ def main():
     # a) Mapping each axis to either time or row title.
     # b) Computing the start index of both time and row title.
 
-    date_axis, date_axis_metadata = axis_detection(data_file)
-    if date_axis is Axis.NONE:
-        raise Exception('Unable to identify date axis of report file {csv}'
-                         .format(csv=data_file))
-
-    # Below is a HACK that sets the title axis as the opposite axis to whatever
-    # is decided to be the date axis.
-    title_axis = Axis.COL if date_axis is Axis.ROW else Axis.ROW
-
+    axis_decision = AxisDecision(data_file)
+    axis_decision.decide()
     traverser = ReportTraverser(
         data_file,
-        date_axis,
-        date_axis_metadata.top_indexes[0],
-        title_axis,
-        0)
-
-    # TODO(aditya): test traverser on variety of reports.
+        axis_decision.date_axis,
+        axis_decision.date_index,
+        axis_decision.title_axis,
+        axis_decision.title_index)
 
 if __name__ == '__main__':
     main()

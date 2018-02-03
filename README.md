@@ -38,3 +38,19 @@ $ pip install -r requirements.txt
 ```
 $ python etl.py FILENAME.csv
 ```
+
+## Run tests:
+
+Most of the effort has gone into developing utils for decomposing reports so
+the test coverage is mostly around the integrity of these tools against a set
+of developer-blessed 'goldens' file, which is the expected output of some util
+against a particular file. If input files are changed or added to, goldens can be refreshed:
+```
+$ python utils/test_utils.py --goldens='<DIR_TO_FILES>'
+```
+This will update or emit a new file `<UTIL_NAME_goldens.txt> into the
+folder containing the sources files. After refreshing, the goldens file
+should be blessed by the developer to ensure output is sane.
+```
+$ python utils/test_utils.py
+```
