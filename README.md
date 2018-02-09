@@ -48,7 +48,7 @@ against a particular file. If input files are changed or added to, goldens can b
 ```
 $ python utils/test_utils.py --goldens='<DIR_TO_FILES>'
 ```
-This will update or emit a new file `<UTIL_NAME_goldens.txt> into the
+This will update or emit a new file `<UTIL_NAME>_goldens.txt` into the
 folder containing the sources files. After refreshing, the goldens file
 should be blessed by the developer to ensure output is sane.
 ```

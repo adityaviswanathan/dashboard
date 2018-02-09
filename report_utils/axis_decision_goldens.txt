@@ -1,0 +1,11 @@
+filename,date axis,date index,title axis,title index
+out/171128 Rent Roll - Desert Crown.csv,1,0,2,0
+out/3. twelve month trailing income statement.csv,1,8,2,0
+out/Copy of CashFlow.MissouriCrest.2016.csv,1,8,2,0
+out/Hardy_-_Cash_Flow_Summary_By_Month(1).csv,1,21,2,0
+out/Hardy_-_Cash_Flow_Summary_By_Month.csv,1,21,2,0
+out/Income_Statement_Standard_By_Month AE.csv,1,11,2,0
+out/Profit and loss statement.csv,1,2,2,0
+out/Trailing 9 - Arcadia Edge (2017).csv,1,7,2,0
+out/Updated Profit and loss statement.csv,1,2,2,0
+out/Wilshire Place v1.6.0 - EM 7.12.2017.csv,1,5,2,0
