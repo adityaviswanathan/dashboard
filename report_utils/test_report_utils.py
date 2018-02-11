@@ -39,6 +39,9 @@ def get_goldens_path(test_type):
     return (os.path.dirname(os.path.abspath(__file__)) + '/' +
         test_type + '_' + GOLDENS_NAME_SUFFIX + '.txt')
 
+def myhash(hashme):
+    return abs(hash(hashme)) % (10 ** HASH_DIGITS)
+
 def write_test_results(goldens_path, goldens_folder, GoldensTestClass):
     print 'Emitting goldens for ' + str(GoldensTestClass.__name__) + '...'
     if not (hasattr(GoldensTestClass, 'goldens_headers') or
@@ -57,7 +60,7 @@ def write_test_results(goldens_path, goldens_folder, GoldensTestClass):
                     print ('Unable to identify date axis for ' +
                             goldens_folder + '/' + f)
                     continue
-    print 'Done emitting goldens for ' + str(GoldensTestClass.__name__) + '...'
+    print 'Done emitting goldens for ' + str(GoldensTestClass.__name__) + '.'
 
 def write_goldens(goldens_folder):
     write_test_results(get_goldens_path('axis_decision'),
@@ -158,6 +161,8 @@ class ReportTraverserGoldens(unittest.TestCase):
         # checks for these methods.
         get_cell_by_index_str = ''
         get_cell_by_text_str = ''
+        get_cells_by_date_str = ''
+        get_cells_by_title_str = ''
         for i in range(0, DATA_REACH_THRESH):
             for j in range(0, DATA_REACH_THRESH):
                 get_cell_by_index_str += str(traverser.get_cell_by_index(i, j))
@@ -165,12 +170,11 @@ class ReportTraverserGoldens(unittest.TestCase):
                     traverser.get_cell_by_text(TITLE_SEARCH, DATE_SEARCH))
         dates = traverser.get_dates()
         titles = traverser.get_titles()
-        # Lets search for cells based on a known legal date/title value. We
-        # will not throw an out-of-bounds error below because dates is
-        # guaranteed to be non-empty at this point (if ReportTraverser was
-        # successfully constructed).
-        get_cells_by_date_str = str(traverser.get_cells_by_date(dates[0]))
-        get_cells_by_title_str = str(traverser.get_cells_by_title(titles[0]))
+        # Lets search for cells based on known legal date/title values.
+        for date in dates:
+            get_cells_by_date_str += str(traverser.get_cells_by_date(date))
+        for title in titles:
+            get_cells_by_title_str += str(traverser.get_cells_by_title(title))
         str_codes = [
             get_cell_by_index_str,
             get_cell_by_text_str,
@@ -178,7 +182,7 @@ class ReportTraverserGoldens(unittest.TestCase):
             get_cells_by_title_str,
             str(dates),
             str(titles)]
-        file_codes = [abs(hash(i)) % (10 ** HASH_DIGITS) for i in str_codes]
+        file_codes = [myhash(i) for i in str_codes]
         return tuple([file_name] + file_codes)
 
     def test_goldens(self):
