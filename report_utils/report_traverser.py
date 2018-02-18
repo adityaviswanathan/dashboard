@@ -71,15 +71,15 @@ class ReportTraverser:
         """
         if title_index == -1 or date_index == -1:
             return None
-        row_axis_index = (self.date_axis_index if self.date_axis is Axis.ROW
+        row_axis_index = (self.date_axis_index if self.date_axis is Axis.COL
                           else self.title_axis_index)
-        col_axis_index = (self.date_axis_index if self.date_axis is Axis.COL
+        col_axis_index = (self.date_axis_index if self.date_axis is Axis.ROW
                           else self.title_axis_index)
         row_to_find = row_axis_index + (date_index
-                                        if self.date_axis is Axis.ROW
+                                        if self.date_axis is Axis.COL
                                         else title_index)
         col_to_find = col_axis_index + (date_index
-                                        if self.date_axis is Axis.COL
+                                        if self.date_axis is Axis.ROW
                                         else title_index)
         with open(self.file_name) as csv_file:
             for row_index, row in enumerate(csv.reader(csv_file, delimiter=',')):

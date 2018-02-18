@@ -10,17 +10,19 @@ __email__ = 'aditya@adityaviswanathan.com'
 import argparse
 import csv
 import os
+import sys
 import unittest
 from axis import Axis
 from axis_decision import AxisDecision
 from report_traverser import ReportTraverser
 
 GOLDENS_NAME_SUFFIX = 'goldens'
+LIST_START = '['
+LIST_END = ']'
+LIST_DELIMITER = ','
+COL_DELIMITER = '|'
 DEBUG = False
-HASH_DIGITS = 10
 DATA_REACH_THRESH = 10
-DATE_SEARCH = "January"
-TITLE_SEARCH = "Cost"
 
 def file_exists(file_name, errmsg):
     try:
@@ -39,9 +41,6 @@ def get_goldens_path(test_type):
     return (os.path.dirname(os.path.abspath(__file__)) + '/' +
         test_type + '_' + GOLDENS_NAME_SUFFIX + '.txt')
 
-def myhash(hashme):
-    return abs(hash(hashme)) % (10 ** HASH_DIGITS)
-
 def write_test_results(goldens_path, goldens_folder, GoldensTestClass):
     print 'Emitting goldens for ' + str(GoldensTestClass.__name__) + '...'
     if not (hasattr(GoldensTestClass, 'goldens_headers') or
@@ -49,7 +48,7 @@ def write_test_results(goldens_path, goldens_folder, GoldensTestClass):
         print ('Attempting to write goldens for undefined GoldensTestClass: ' +
                 GoldensTestClass)
     with open(goldens_path, 'w') as goldens:
-        csv_goldens = csv.writer(goldens)
+        csv_goldens = csv.writer(goldens, delimiter=COL_DELIMITER)
         csv_goldens.writerow(GoldensTestClass.goldens_headers())
         for f in os.listdir(goldens_folder):
             if f.endswith('.csv'):
@@ -69,6 +68,16 @@ def write_goldens(goldens_folder):
     write_test_results(get_goldens_path('report_traverser'),
                        goldens_folder,
                        ReportTraverserGoldens)
+
+def goldens_stub(name, args, value):
+    p = LIST_DELIMITER.join([str(a) for a in args]) if len(args) > 0 else ''
+    return name + '(' + p + ') = ' + str(value)
+
+def goldens_append(curr_str, append_str):
+    out_str = curr_str
+    if out_str is not LIST_START:
+        out_str += LIST_DELIMITER
+    return out_str + append_str
 
 class AxisDecisionGoldens(unittest.TestCase):
     @classmethod
@@ -103,7 +112,7 @@ class AxisDecisionGoldens(unittest.TestCase):
 
     def test_goldens(self):
         with open(self.goldens_path, 'r') as goldens:
-            csv_goldens = csv.reader(goldens, delimiter=',')
+            csv_goldens = csv.reader(goldens, delimiter=COL_DELIMITER)
             for golden_test in csv_goldens:
                 # TEST: ensure goldens file is well-formed.
                 self.assertEqual(len(golden_test),
@@ -131,12 +140,12 @@ class ReportTraverserGoldens(unittest.TestCase):
     def goldens_headers():
         return (
             'filename',
-            'get_cell_by_index hashcode',
-            'get_cell_by_text hashcode',
-            'get_cells_by_date hashcode',
-            'get_cells_by_title hashcode',
-            'get_dates hashcode',
-            'get_titles hashcode')
+            'get_cell_by_index values',
+            'get_cell_by_text values',
+            'get_cells_by_date values',
+            'get_cells_by_title values',
+            'get_dates values',
+            'get_titles values')
 
     @staticmethod
     def write_goldens(file_name):
@@ -147,47 +156,66 @@ class ReportTraverserGoldens(unittest.TestCase):
                                     axis_decision.date_index,
                                     axis_decision.title_axis,
                                     axis_decision.title_index)
-        # Generate representative hashes for ReportTraverser's public methods:
+        # Generate representative strings for ReportTraverser's public methods:
         # 1) get_cell_by_index
         # 2) get_cell_by_text
         # 3) get_cells_by_date
         # 4) get_cells_by_title
         # 5) get_dates
         # 6) get_titles
-        # This is done by computing these methods on @file_name on some fixed
-        # parameters currently specified as globals in this file. Note that
-        # these fixed parameters do not necessarily exhaustively test a
-        # particular method and that goldens-based tests are really sanity
-        # checks for these methods.
-        get_cell_by_index_str = ''
-        get_cell_by_text_str = ''
-        get_cells_by_date_str = ''
-        get_cells_by_title_str = ''
-        for i in range(0, DATA_REACH_THRESH):
-            for j in range(0, DATA_REACH_THRESH):
-                get_cell_by_index_str += str(traverser.get_cell_by_index(i, j))
-                get_cell_by_text_str += str(
-                    traverser.get_cell_by_text(TITLE_SEARCH, DATE_SEARCH))
+        # This is done by computing these methods on @file_name.
         dates = traverser.get_dates()
         titles = traverser.get_titles()
-        # Lets search for cells based on known legal date/title values.
+        # Generate get_cell_by_index string code.
+        get_cell_by_index_str = LIST_START
+        for i in range(0, DATA_REACH_THRESH):
+            for j in range(0, DATA_REACH_THRESH):
+                c = goldens_stub('get_cell_by_index',
+                                 [i, j],
+                                 traverser.get_cell_by_index(i, j))
+                get_cell_by_index_str = goldens_append(get_cell_by_index_str, c)
+        get_cell_by_index_str += LIST_END
+        # Generate get_cell_by_text string code.
+        get_cell_by_text_str = LIST_START
         for date in dates:
-            get_cells_by_date_str += str(traverser.get_cells_by_date(date))
+            for title in titles:
+                c = goldens_stub('get_cell_by_text',
+                                 [title, date],
+                                 traverser.get_cell_by_text(title, date))
+                get_cell_by_text_str = goldens_append(get_cell_by_text_str, c)
+        get_cell_by_text_str += LIST_END
+        # Generate get_cells_by_date string code.
+        get_cells_by_date_str = LIST_START
+        for date in dates:
+            c = goldens_stub('get_cells_by_date',
+                             [date],
+                             traverser.get_cells_by_date(date))
+            get_cells_by_date_str = goldens_append(get_cells_by_date_str, c)
+        get_cells_by_date_str += LIST_END
+        # Generate get_cells_by_title string code.
+        get_cells_by_title_str = LIST_START
         for title in titles:
-            get_cells_by_title_str += str(traverser.get_cells_by_title(title))
+            c = goldens_stub('get_cells_by_title',
+                             [title],
+                             traverser.get_cells_by_title(title))
+            get_cells_by_title_str = goldens_append(get_cells_by_title_str, c)
+        get_cells_by_title_str += LIST_END
+        get_dates_str = goldens_stub(
+            'get_dates', [], str(dates).replace(COL_DELIMITER, LIST_DELIMITER))
+        get_titles_str = goldens_stub(
+            'get_titles', [], str(titles).replace(COL_DELIMITER, LIST_DELIMITER))
         str_codes = [
             get_cell_by_index_str,
             get_cell_by_text_str,
             get_cells_by_date_str,
             get_cells_by_title_str,
-            str(dates),
-            str(titles)]
-        file_codes = [myhash(i) for i in str_codes]
-        return tuple([file_name] + file_codes)
+            get_dates_str,
+            get_titles_str]
+        return tuple([file_name] + str_codes)
 
     def test_goldens(self):
         with open(self.goldens_path, 'r') as goldens:
-            csv_goldens = csv.reader(goldens, delimiter=',')
+            csv_goldens = csv.reader(goldens, delimiter=COL_DELIMITER)
             for golden_test in csv_goldens:
                 # TEST: ensure goldens file is well-formed.
                 self.assertEqual(len(golden_test),
@@ -205,6 +233,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--goldens', help='path from which goldens file will be generated')
     args = parser.parse_args()
+    csv.field_size_limit(sys.maxsize)
     if args.goldens:
         write_goldens(args.goldens)
     else:
