@@ -34,9 +34,6 @@ def file_exists(file_name, errmsg):
             print errmsg
         return False
 
-def t2l(tup):
-    return [str(i) for i in tup]
-
 def get_goldens_path(test_type):
     return (os.path.dirname(os.path.abspath(__file__)) + '/' +
         test_type + '_' + GOLDENS_NAME_SUFFIX + '.txt')
@@ -44,7 +41,7 @@ def get_goldens_path(test_type):
 def write_test_results(goldens_path, goldens_folder, GoldensTestClass):
     print 'Emitting goldens for ' + str(GoldensTestClass.__name__) + '...'
     if not (hasattr(GoldensTestClass, 'goldens_headers') or
-            hasattr(GoldensTestClass, 'write_goldens')):
+            hasattr(GoldensTestClass, 'run_goldens_test')):
         print ('Attempting to write goldens for undefined GoldensTestClass: ' +
                 GoldensTestClass)
     with open(goldens_path, 'w') as goldens:
@@ -53,7 +50,7 @@ def write_test_results(goldens_path, goldens_folder, GoldensTestClass):
         for f in os.listdir(goldens_folder):
             if f.endswith('.csv'):
                 try:
-                    csv_goldens.writerow(GoldensTestClass.write_goldens(
+                    csv_goldens.writerow(GoldensTestClass.run_goldens_test(
                         goldens_folder + '/' + f))
                 except:
                     print ('Unable to identify date axis for ' +
@@ -61,7 +58,7 @@ def write_test_results(goldens_path, goldens_folder, GoldensTestClass):
                     continue
     print 'Done emitting goldens for ' + str(GoldensTestClass.__name__) + '.'
 
-def write_goldens(goldens_folder):
+def run_goldens_test(goldens_folder):
     write_test_results(get_goldens_path('axis_decision'),
                        goldens_folder,
                        AxisDecisionGoldens)
@@ -70,8 +67,8 @@ def write_goldens(goldens_folder):
                        ReportTraverserGoldens)
 
 def goldens_stub(name, args, value):
-    p = LIST_DELIMITER.join([str(a) for a in args]) if len(args) > 0 else ''
-    return name + '(' + p + ') = ' + str(value)
+    l = LIST_DELIMITER.join([str(a) for a in args]) if len(args) > 0 else ''
+    return name + '(' + l + ') = ' + str(value)
 
 def goldens_append(curr_str, append_str):
     out_str = curr_str
@@ -100,15 +97,15 @@ class AxisDecisionGoldens(unittest.TestCase):
             'title index')
 
     @staticmethod
-    def write_goldens(file_name):
+    def run_goldens_test(file_name):
         axis_decision = AxisDecision(file_name)
         axis_decision.decide()
-        return (
+        return [
             file_name,
-            axis_decision.date_axis,
-            axis_decision.date_index,
-            axis_decision.title_axis,
-            axis_decision.title_index)
+            str(axis_decision.date_axis),
+            str(axis_decision.date_index),
+            str(axis_decision.title_axis),
+            str(axis_decision.title_index)]
 
     def test_goldens(self):
         with open(self.goldens_path, 'r') as goldens:
@@ -121,9 +118,8 @@ class AxisDecisionGoldens(unittest.TestCase):
                 err = 'Cannot open file "' + file_name + '", skipping.'
                 if not file_exists(file_name, err):
                     continue
-                found = t2l(AxisDecisionGoldens.write_goldens(file_name))
                 # TEST: run goldens test.
-                self.assertEqual(golden_test, found)
+                self.assertEqual(golden_test, AxisDecisionGoldens.run_goldens_test(file_name))
 
 class ReportTraverserGoldens(unittest.TestCase):
     @classmethod
@@ -148,7 +144,7 @@ class ReportTraverserGoldens(unittest.TestCase):
             'get_titles values')
 
     @staticmethod
-    def write_goldens(file_name):
+    def run_goldens_test(file_name):
         axis_decision = AxisDecision(file_name)
         axis_decision.decide()
         traverser = ReportTraverser(file_name,
@@ -170,34 +166,30 @@ class ReportTraverserGoldens(unittest.TestCase):
         get_cell_by_index_str = LIST_START
         for i in range(0, DATA_REACH_THRESH):
             for j in range(0, DATA_REACH_THRESH):
-                c = goldens_stub('get_cell_by_index',
-                                 [i, j],
-                                 traverser.get_cell_by_index(i, j))
+                val = traverser.get_cell_by_index(i, j)
+                c = goldens_stub('get_cell_by_index', [i, j], val)
                 get_cell_by_index_str = goldens_append(get_cell_by_index_str, c)
         get_cell_by_index_str += LIST_END
         # Generate get_cell_by_text string code.
         get_cell_by_text_str = LIST_START
         for date in dates:
             for title in titles:
-                c = goldens_stub('get_cell_by_text',
-                                 [title, date],
-                                 traverser.get_cell_by_text(title, date))
+                val = traverser.get_cell_by_text(title, date)
+                c = goldens_stub('get_cell_by_text', [title, date], val)
                 get_cell_by_text_str = goldens_append(get_cell_by_text_str, c)
         get_cell_by_text_str += LIST_END
         # Generate get_cells_by_date string code.
         get_cells_by_date_str = LIST_START
         for date in dates:
-            c = goldens_stub('get_cells_by_date',
-                             [date],
-                             traverser.get_cells_by_date(date))
+            val = traverser.get_cells_by_date(date)
+            c = goldens_stub('get_cells_by_date', [date], val)
             get_cells_by_date_str = goldens_append(get_cells_by_date_str, c)
         get_cells_by_date_str += LIST_END
         # Generate get_cells_by_title string code.
         get_cells_by_title_str = LIST_START
         for title in titles:
-            c = goldens_stub('get_cells_by_title',
-                             [title],
-                             traverser.get_cells_by_title(title))
+            val = traverser.get_cells_by_title(title)
+            c = goldens_stub('get_cells_by_title', [title], val)
             get_cells_by_title_str = goldens_append(get_cells_by_title_str, c)
         get_cells_by_title_str += LIST_END
         get_dates_str = goldens_stub(
@@ -211,7 +203,7 @@ class ReportTraverserGoldens(unittest.TestCase):
             get_cells_by_title_str,
             get_dates_str,
             get_titles_str]
-        return tuple([file_name] + str_codes)
+        return [file_name] + str_codes
 
     def test_goldens(self):
         with open(self.goldens_path, 'r') as goldens:
@@ -224,9 +216,8 @@ class ReportTraverserGoldens(unittest.TestCase):
                 err = 'Cannot open file "' + file_name + '", skipping.'
                 if not file_exists(file_name, err):
                     continue
-                found = t2l(ReportTraverserGoldens.write_goldens(file_name))
                 # TEST: run goldens test.
-                self.assertEqual(golden_test, found)
+                self.assertEqual(golden_test, ReportTraverserGoldens.run_goldens_test(file_name))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -235,6 +226,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     csv.field_size_limit(sys.maxsize)
     if args.goldens:
-        write_goldens(args.goldens)
+        run_goldens_test(args.goldens)
     else:
         unittest.main()

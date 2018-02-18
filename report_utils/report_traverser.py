@@ -13,7 +13,7 @@ import csv
 
 from axis import Axis
 
-class ReportTraverser:
+class ReportTraverser(object):
     def __init__(
         self,
         file_name,
@@ -51,24 +51,24 @@ class ReportTraverser:
         return vals
 
     def get_dates(self):
-        """
+        '''
         Returns a list of strings corresponding to the dates in the axis
         containing them.
-        """
+        '''
         return self.get_labels(self.date_axis, self.date_axis_index, self.title_axis_index)
 
     def get_titles(self):
-        """
+        '''
         Returns a list of strings corresponding to the titles in the axis
         containing them.
-        """
+        '''
         return self.get_labels(self.title_axis, self.title_axis_index, self.date_axis_index)
 
     def get_cell_by_index(self, title_index, date_index):
-        """
+        '''
         Returns a string corresponding to the cell addressed by @title_index and
         @date_index.
-        """
+        '''
         if title_index == -1 or date_index == -1:
             return None
         row_axis_index = (self.date_axis_index if self.date_axis is Axis.COL
@@ -119,11 +119,11 @@ class ReportTraverser:
         return self.get_cell_by_index(found_title_index, found_date_index)
 
     def get_cells(self, text, axis, axis_index, other_axis_index):
-        """
+        '''
         Returns a list of strings corresponding to the cells addressed by a
         @text filter for a given @axis. Also requires @axis_index and
         @other_axis_index to ensure only the values are returned.
-        """
+        '''
         vals = []
         with open(self.file_name) as csv_file:
             if axis is Axis.ROW:
