@@ -22,6 +22,9 @@ class ParseTreeTest(unittest.TestCase):
             'Multiply(2,1)' : 2.0,
             'Divide(2,1)' : 2.0,
             'Multiply(2.5,    2.5)' : 6.25,
+            'Count(2.5,    2.5, 4)' : 3.0,
+            'Average(1, 2, 3)' : 2.0,
+            'Average(2, 2.5, 3)' : 2.5,
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(ParseTree(input_str).evaluate_tree(), val)

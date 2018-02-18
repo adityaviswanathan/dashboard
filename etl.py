@@ -14,6 +14,7 @@ import os
 import xlrd
 
 import report_utils
+import formula_engine
 
 OUT_FOLDER = 'out'
 

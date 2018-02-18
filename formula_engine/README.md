@@ -5,7 +5,9 @@ and the raw data in the report extracted via `report_utils`. This layer defines
 and ultimately expects well-formed formula expression strings as input to
 compute on a particular report.
 
-### Parsing the expression (`parse_tree`, `parse_tree_node`):
+### Parsing the expression (`ParseTree`, `ParseTreeNode`):
 
 Input strings are read into a `ParseTree` which can then be recursively
 evaluated based on the definitions of the function nodes in the tree.
+
+- Add(get_cell_by_text('hi', 'hi'), 3)

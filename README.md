@@ -22,8 +22,8 @@ report. As of now, `ReportTraverser` supports the following query formats:
 - Date filter lookup (e.g. "all cells where date is 'January 2017'")
 - Title filter lookup (e.g. "all cells where title is 'rent payment'")
 
-While `report_utils/ReportTraverser` is concerned with the correct extraction of
-data from reports, `formula_engine/ParseTree` is concerned with the construction
+While `report_utils/report_traverser` is concerned with the correct extraction of
+data from reports, `formula_engine/parse_tree` is concerned with the construction
 of functional expressions over extracted data. Both tools will come together to
 define analytical formulas over the semantics of specific reports.
 
@@ -40,11 +40,10 @@ $ pip install -r requirements.txt
 
 ## Run tests:
 
-Most of the effort has gone into developing utils for decomposing reports so
-the test coverage is mostly around the integrity of these tools against a set
-of developer-blessed 'goldens' file, which is the expected output of some util
-against a particular file. If input files are changed or added to, goldens can
-be refreshed:
+Test coverage for `report_utils` is mostly concerned with the integrity of the
+output of these tools against a set of developer-blessed 'goldens' file, which
+is the expected output of some util against a particular file. If input files
+are changed or added to, goldens can be refreshed:
 ```
 $ python report_utils/test_report_utils.py --goldens='<DIR_TO_FILES>'
 ```
@@ -54,7 +53,7 @@ blessed by the developer to ensure output is sane.
 ```
 $ python report_utils/test_report_utils.py
 ```
-Tests for `formula_engine` van by run via:
+Tests for `formula_engine` can be run via:
 ```
 $ python formula_engine/test_formula_engine.py
 ```

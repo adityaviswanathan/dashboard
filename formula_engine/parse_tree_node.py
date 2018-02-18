@@ -16,20 +16,30 @@ class ParseTreeNodeType(enum.Enum):
     FUNCTION = 1
 
 class ParseTreeNode(object):
-    def operator_func(name):
+    def operator_func(n):
         '''
         Private helper that applies a well-defined Python built-in operator
         as a function to an argument list.
         '''
-        return (lambda a : reduce(getattr(operator, name), [float(c) for c in a]))
+        return lambda a : reduce(getattr(operator, n), [float(c) for c in a])
+
+    def average_func(args):
+        divide_args = (ParseTreeNode.function_defs['Add'](args),
+             ParseTreeNode.function_defs['Count'](args))
+        return ParseTreeNode.function_defs['Divide'](divide_args)
 
     function_defs = {
         'Add' : operator_func('add'), # varargs.
         'Subtract' : operator_func('sub'), # varargs.
         'Multiply' : operator_func('mul'), # varargs.
         'Divide' : operator_func('truediv'), # varargs.
-        'FloorDivide' : operator_func('floordiv') # varargs.
+        'FloorDivide' : operator_func('floordiv'), # varargs.
+        'Count' : lambda a : len(a), # varargs.
+        'Average' : average_func # varargs.
     }
+    # TODO(aditya): extend @function_defs with bindings to ReportTraverser
+    # API so that we can parse both analytical function names and
+    # ReportTraverser function names in ParseTree traversal.
 
     def __init__(self, val, node_type, parent):
         self.val = val
@@ -42,7 +52,7 @@ class ParseTreeNode(object):
             return self.val
         if self.val not in ParseTreeNode.function_defs:
             raise Exception(
-                'Cannot find definition for function "' + self.val  + '"')
+                'Cannot find definition for function "' + self.val  + '".')
         return ParseTreeNode.function_defs[self.val](args)
 
     def evaluate(self):
