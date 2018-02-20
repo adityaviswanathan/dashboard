@@ -33,11 +33,11 @@ class ParseTree(object):
         Builds a ParseTree over self.input by doing a linear scan of the input
         string and mutating the ParseTree in-place.
         '''
-        stutter_index = 0
+        stutter = 0
         self.root = curr = None
         for index, c in enumerate(self.input):
             if c == ParseTree.token_arg_start:
-                func = ParseTreeNode(self.input[stutter_index:index].strip(),
+                func = ParseTreeNode(self.input[stutter:index].strip(),
                                      ParseTreeNodeType.FUNCTION,
                                      self.traverser,
                                      curr)
@@ -46,23 +46,23 @@ class ParseTree(object):
                 else:
                     curr.children.append(func)
                 curr = func
-                stutter_index = index + 1
+                stutter = index + 1
             if c == ParseTree.token_arg_end:
-                if stutter_index != index:
+                if stutter != index and self.input[stutter:index].strip():
                     # Arg before delimiter must have been CONSTANT.
-                    arg = ParseTreeNode(self.input[stutter_index:index].strip(),
+                    arg = ParseTreeNode(self.input[stutter:index].strip(),
                                         ParseTreeNodeType.CONSTANT,
                                         self.traverser,
                                         curr)
                     curr.children.append(arg)
                 curr = curr.parent
-                stutter_index = index + 1
+                stutter = index + 1
             if c == ParseTree.token_arg_delimiter:
-                if stutter_index != index:
+                if stutter != index:
                     # Arg before delimiter must have been CONSTANT.
-                    arg = ParseTreeNode(self.input[stutter_index:index].strip(),
+                    arg = ParseTreeNode(self.input[stutter:index].strip(),
                                         ParseTreeNodeType.CONSTANT,
                                         self.traverser,
                                         curr)
                     curr.children.append(arg)
-                stutter_index = index + 1
+                stutter = index + 1

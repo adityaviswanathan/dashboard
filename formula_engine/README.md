@@ -10,7 +10,6 @@ compute on a particular report.
 Input strings are read into a `ParseTree` which can then be recursively
 evaluated based on the definitions of the function nodes in the tree.
 
-ParseTree requires a binding to an instance of ReportTraverser in order to
-correctly process nodes that pertain to report data.
-
-- Add(get_cell_by_text('hi', 'hi'), 3)
+In the case of functions that exercise a particular report, ParseTree requires a
+reference to an instance of ReportTraverser in order to correctly process nodes
+that pertain to report data.

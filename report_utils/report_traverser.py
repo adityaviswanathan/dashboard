@@ -29,6 +29,31 @@ class ReportTraverser(object):
         self.title_axis = title_axis
         self.title_axis_index = title_axis_index
 
+    @staticmethod
+    def denoise_cell(cell):
+        noise = ['$', ',']
+        denoised = cell
+        for frag in noise:
+            denoised = denoised.replace(frag, '')
+        return denoised
+
+    def cell_to_float(self, cell):
+        try:
+            val = float(ReportTraverser.denoise_cell(cell).strip())
+            return val
+        except ValueError:
+            raise Exception('Cannot convert ' + cell + ' to numeric')
+
+    def cells_to_floats(self, cells, skips=False):
+        floats = []
+        for cell in cells:
+            try:
+                floats.append(self.cell_to_float(cell))
+            except Exception:
+                if skips:
+                    continue
+        return floats
+
     def get_labels(self, axis, axis_index, other_axis_index):
         vals = []
         with open(self.file_name) as csv_file:
@@ -69,18 +94,31 @@ class ReportTraverser(object):
         Returns a string corresponding to the cell addressed by @title_index and
         @date_index.
         '''
-        if title_index == -1 or date_index == -1:
+        # Cast args to int if not already typed correctly.
+        try:
+            int(title_index)
+        except ValueError:
+            raise Exception('Unable to cast supplied title_index ' + \
+                title_index + ' to int.')
+        try:
+            int(date_index)
+        except ValueError:
+            raise Exception('Unable to cast supplied date_index ' + \
+                title_index + ' to int.')
+        title_index_int = int(title_index)
+        date_index_int = int(date_index)
+        if title_index_int < 0 or date_index_int < 0:
             return None
         row_axis_index = (self.date_axis_index if self.date_axis is Axis.ROW
                           else self.title_axis_index)
         col_axis_index = (self.date_axis_index if self.date_axis is Axis.COL
                           else self.title_axis_index)
-        row_to_find = row_axis_index + (date_index
+        row_to_find = row_axis_index + (date_index_in
                                         if self.date_axis is Axis.COL
-                                        else title_index)
-        col_to_find = col_axis_index + (date_index
+                                        else title_index_int)
+        col_to_find = col_axis_index + (date_index_int
                                         if self.date_axis is Axis.ROW
-                                        else title_index)
+                                        else title_index_int)
         with open(self.file_name) as csv_file:
             for row_index, row in enumerate(csv.reader(csv_file, delimiter=',')):
                 if row_index == row_to_find:

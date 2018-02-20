@@ -7,8 +7,6 @@ Base class for deciders.
 __author__ = 'Aditya Viswanathan'
 __email__ = 'aditya@adityaviswanathan.com'
 
-import re
-
 class Decider(object):
     def __init__(self, data):
         self.data = data
