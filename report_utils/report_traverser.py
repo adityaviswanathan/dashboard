@@ -71,9 +71,9 @@ class ReportTraverser(object):
         '''
         if title_index == -1 or date_index == -1:
             return None
-        row_axis_index = (self.date_axis_index if self.date_axis is Axis.COL
+        row_axis_index = (self.date_axis_index if self.date_axis is Axis.ROW
                           else self.title_axis_index)
-        col_axis_index = (self.date_axis_index if self.date_axis is Axis.ROW
+        col_axis_index = (self.date_axis_index if self.date_axis is Axis.COL
                           else self.title_axis_index)
         row_to_find = row_axis_index + (date_index
                                         if self.date_axis is Axis.COL

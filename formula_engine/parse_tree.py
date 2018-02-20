@@ -15,8 +15,9 @@ class ParseTree(object):
     token_arg_end = ')'
     token_arg_delimiter = ','
 
-    def __init__(self, input_str):
+    def __init__(self, input_str, traverser=None):
         self.input = input_str
+        self.traverser = traverser
         self.root = None
 
     def evaluate_tree(self):
@@ -25,7 +26,7 @@ class ParseTree(object):
         '''
         if self.root is None:
             self.build_tree()
-        return self.root.evaluate()
+        return self.root.evaluate()[0]
 
     def build_tree(self):
         '''
@@ -38,6 +39,7 @@ class ParseTree(object):
             if c == ParseTree.token_arg_start:
                 func = ParseTreeNode(self.input[stutter_index:index].strip(),
                                      ParseTreeNodeType.FUNCTION,
+                                     self.traverser,
                                      curr)
                 if self.root is None:
                     self.root = func
@@ -50,6 +52,7 @@ class ParseTree(object):
                     # Arg before delimiter must have been CONSTANT.
                     arg = ParseTreeNode(self.input[stutter_index:index].strip(),
                                         ParseTreeNodeType.CONSTANT,
+                                        self.traverser,
                                         curr)
                     curr.children.append(arg)
                 curr = curr.parent
@@ -59,6 +62,7 @@ class ParseTree(object):
                     # Arg before delimiter must have been CONSTANT.
                     arg = ParseTreeNode(self.input[stutter_index:index].strip(),
                                         ParseTreeNodeType.CONSTANT,
+                                        self.traverser,
                                         curr)
                     curr.children.append(arg)
                 stutter_index = index + 1
