@@ -62,7 +62,7 @@ class ParseTreeNode(object):
         # For ex. if we computed Average over a list of k string values where
         # we were only able to successfully convert j < k values to numeric,
         # we would in reality be computing the Sum of those j values divided by
-        # k, when in reality it should be divided by j.
+        # k, when in reality the Sum of j values should be divided by j.
         if n in ParseTreeNode.SINGLETON_BINDINGS:
             # If return type of ReportTraverser method is a singleton, we need to
             # convert the returned string into its equivalent float value before
@@ -71,9 +71,6 @@ class ParseTreeNode(object):
             return lambda a : [self.traverser.cell_to_float(
                 getattr(self.traverser, n)(*[i.val for i in a]))]
         if n in ParseTreeNode.LIST_BINDINGS:
-            # TODO(aditya): Only typecast if parent (caller) is an analytical
-            # function requiring numeric inputs. Otherwise, it is totally legal
-            # to return the original, exhaustive list of strings.
             if ParseTreeNode.BINDING_IS_NUMERIC[n]:
                 return lambda a : self.traverser.cells_to_floats(
                     getattr(self.traverser, n)(*[i.val for i in a]), True)

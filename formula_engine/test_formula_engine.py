@@ -71,11 +71,24 @@ class ParseTreeTraverser(unittest.TestCase):
             'Count( get_titles (  )  )' : 51,
             'get_cell_by_text ( Late Fee, JAN 17  )' : 0,
             'Add(get_cell_by_text ( Late Fee, OCT 17  ), get_cell_by_index(5, 11))' : 510,
-            'Ceiling(Average(get_cells_by_date(SEP 17)))' : 1122
+            'Ceiling(Average(get_cells_by_date(SEP 17)))' : 1122,
+            'get_dates()' : 'Account Name' # Tests bogus case of call to
+                                           # evaluate_tree without specifying
+                                           # is_list flag. Ok to disable.
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(
                 ParseTree(input_str, self.traverser).evaluate_tree(), val)
+
+    def test_list_response(self):
+        answers = {
+            'get_dates()' : ['Account Name', 'JAN 17', 'FEB 17', 'MAR 17',
+                'APR 17', 'MAY 17', 'JUN 17', 'JUL 17', 'AUG 17', 'SEP 17',
+                'OCT 17', 'NOV 17', 'DEC 17', 'Total']
+        }
+        for input_str, val in answers.iteritems():
+            self.assertEqual(
+                ParseTree(input_str, self.traverser).evaluate_tree(is_list=True), val)
 
 if __name__ == '__main__':
     unittest.main()

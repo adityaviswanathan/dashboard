@@ -46,10 +46,12 @@ class ReportTraverser(object):
 
     def cells_to_floats(self, cells, skips=False):
         floats = []
+        skip_count = 0
         for cell in cells:
             try:
                 floats.append(self.cell_to_float(cell))
             except Exception:
+                skip_count += 1
                 if skips:
                     continue
         return floats
@@ -104,7 +106,7 @@ class ReportTraverser(object):
             int(date_index)
         except ValueError:
             raise Exception('Unable to cast supplied date_index ' + \
-                title_index + ' to int.')
+                date_index + ' to int.')
         title_index_int = int(title_index)
         date_index_int = int(date_index)
         if title_index_int < 0 or date_index_int < 0:

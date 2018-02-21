@@ -20,12 +20,14 @@ class ParseTree(object):
         self.traverser = traverser
         self.root = None
 
-    def evaluate_tree(self):
+    def evaluate_tree(self, is_list=False):
         '''
         Recursively evaluates the ParseTree.
         '''
         if self.root is None:
             self.build_tree()
+        if is_list:
+            return self.root.evaluate()
         return self.root.evaluate()[0]
 
     def build_tree(self):
@@ -47,7 +49,7 @@ class ParseTree(object):
                     curr.children.append(func)
                 curr = func
                 stutter = index + 1
-            if c == ParseTree.token_arg_end:
+            elif c == ParseTree.token_arg_end:
                 if stutter != index and self.input[stutter:index].strip():
                     # Arg before delimiter must have been CONSTANT.
                     arg = ParseTreeNode(self.input[stutter:index].strip(),
@@ -57,7 +59,7 @@ class ParseTree(object):
                     curr.children.append(arg)
                 curr = curr.parent
                 stutter = index + 1
-            if c == ParseTree.token_arg_delimiter:
+            elif c == ParseTree.token_arg_delimiter:
                 if stutter != index:
                     # Arg before delimiter must have been CONSTANT.
                     arg = ParseTreeNode(self.input[stutter:index].strip(),
