@@ -13,6 +13,11 @@ import math
 import operator
 import os
 import sys
+# Append parent dir to $PYTHONPATH to import ReportTraverser, whose public
+# methods have bindings into the ParseTreeNode.
+my_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
+import report_utils
 
 # TODO(aditya): Handle None return values from ReportTraverser (in most cases
 # will need to cast to 0.0.
@@ -41,7 +46,10 @@ class ParseTreeNode(object):
         Private helper that applies a well-defined Python built-in operator
         as a function to an argument list.
         '''
-        return lambda a : [reduce(getattr(operator, n), [float(i) for i in a])]
+        return (lambda a : [report_utils.Cell(
+            reduce(getattr(operator, n), [float(i.val) for i in a]),
+            a[0].title,
+            a[0].date)])
 
     def average_func(self, args):
         divide_args = [self.function_defs['Add'](args)[0],
@@ -74,8 +82,7 @@ class ParseTreeNode(object):
             if ParseTreeNode.BINDING_IS_NUMERIC[n]:
                 return lambda a : self.traverser.cells_to_floats(
                     getattr(self.traverser, n)(*[i.val for i in a]), True)
-            else:
-                return lambda a : getattr(self.traverser, n)(*[i.val for i in a])
+            return lambda a : getattr(self.traverser, n)(*[i.val for i in a])
 
     def __init__(self, val, node_type, traverser, parent):
         self.val = val
@@ -93,10 +100,19 @@ class ParseTreeNode(object):
             'Multiply' : self.operator_func('mul'), # varargs.
             'Divide' : self.operator_func('truediv'), # varargs.
             'FloorDivide' : self.operator_func('floordiv'), # varargs.
-            'Count' : lambda a : [len(a)], # varargs.
+            'Count' : (lambda a : [report_utils.Cell(
+                len(a),
+                a[0].title if len(a) > 0 else "",
+                a[0].date if len(a) > 0 else "")]), # varargs.
             'Average' : self.average_func, # varargs.
-            'Floor' : lambda a : [math.floor(a[0])],
-            'Ceiling' : lambda a : [math.ceil(a[0])],
+            'Floor' : (lambda a : [report_utils.Cell(
+                math.floor(a[0].val),
+                a[0].title,
+                a[0].date)]),
+            'Ceiling' : (lambda a : [report_utils.Cell(
+                math.ceil(a[0].val),
+                a[0].title,
+                a[0].date)]),
             'get_dates' : self.traverser_func('get_dates'),
             'get_titles' : self.traverser_func('get_titles'),
             'get_cell_by_index' : self.traverser_func('get_cell_by_index'),
@@ -107,7 +123,7 @@ class ParseTreeNode(object):
 
     def evaluate_with_args(self, args):
         if self.type == ParseTreeNodeType.CONSTANT:
-            return [self.val]
+            return [report_utils.Cell(self.val, "", "")]
         if self.val not in self.function_defs:
             raise Exception(
                 'Cannot find definition for function "' + self.val  + '".')

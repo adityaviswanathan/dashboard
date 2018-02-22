@@ -160,13 +160,13 @@ class ReportTraverserGoldens(unittest.TestCase):
         # 5) get_dates
         # 6) get_titles
         # This is done by computing these methods on @file_name.
-        dates = traverser.get_dates()
-        titles = traverser.get_titles()
+        dates = [i.val for i in traverser.get_dates()]
+        titles = [i.val for i in traverser.get_titles()]
         # Generate get_cell_by_index string code.
         get_cell_by_index_str = LIST_START
         for i in range(0, DATA_REACH_THRESH):
             for j in range(0, DATA_REACH_THRESH):
-                val = traverser.get_cell_by_index(i, j)
+                val = traverser.get_cell_by_index(i, j).val
                 c = goldens_stub('get_cell_by_index', [i, j], val)
                 get_cell_by_index_str = goldens_append(get_cell_by_index_str, c)
         get_cell_by_index_str += LIST_END
@@ -174,21 +174,21 @@ class ReportTraverserGoldens(unittest.TestCase):
         get_cell_by_text_str = LIST_START
         for date in dates:
             for title in titles:
-                val = traverser.get_cell_by_text(title, date)
+                val = traverser.get_cell_by_text(title, date).val
                 c = goldens_stub('get_cell_by_text', [title, date], val)
                 get_cell_by_text_str = goldens_append(get_cell_by_text_str, c)
         get_cell_by_text_str += LIST_END
         # Generate get_cells_by_date string code.
         get_cells_by_date_str = LIST_START
         for date in dates:
-            val = traverser.get_cells_by_date(date)
+            val = [i.val for i in traverser.get_cells_by_date(date)]
             c = goldens_stub('get_cells_by_date', [date], val)
             get_cells_by_date_str = goldens_append(get_cells_by_date_str, c)
         get_cells_by_date_str += LIST_END
         # Generate get_cells_by_title string code.
         get_cells_by_title_str = LIST_START
         for title in titles:
-            val = traverser.get_cells_by_title(title)
+            val = [i.val for i in traverser.get_cells_by_title(title)]
             c = goldens_stub('get_cells_by_title', [title], val)
             get_cells_by_title_str = goldens_append(get_cells_by_title_str, c)
         get_cells_by_title_str += LIST_END

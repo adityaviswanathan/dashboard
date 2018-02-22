@@ -34,7 +34,7 @@ class ParseTreeBasic(unittest.TestCase):
             'Average(2, 2.5, 3)' : 2.5,
         }
         for input_str, val in answers.iteritems():
-            self.assertEqual(ParseTree(input_str).evaluate_tree(), val)
+            self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
 
     def test_nesting(self):
         answers = {
@@ -42,7 +42,7 @@ class ParseTreeBasic(unittest.TestCase):
             'Subtract( Multiply(   2.5, 3.5), Add(3,     1))' : 4.75,
         }
         for input_str, val in answers.iteritems():
-            self.assertEqual(ParseTree(input_str).evaluate_tree(), val)
+            self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
 
     def test_varargs(self):
         answers = {
@@ -50,7 +50,7 @@ class ParseTreeBasic(unittest.TestCase):
             'Subtract( Add(2, 3), Add (3,4), Add(  4,5))' : -11,
         }
         for input_str, val in answers.iteritems():
-            self.assertEqual(ParseTree(input_str).evaluate_tree(), val)
+            self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
 
 class ParseTreeTraverser(unittest.TestCase):
     @classmethod
@@ -72,23 +72,64 @@ class ParseTreeTraverser(unittest.TestCase):
             'get_cell_by_text ( Late Fee, JAN 17  )' : 0,
             'Add(get_cell_by_text ( Late Fee, OCT 17  ), get_cell_by_index(5, 11))' : 510,
             'Ceiling(Average(get_cells_by_date(SEP 17)))' : 1122,
-            'get_dates()' : 'Account Name' # Tests bogus case of call to
-                                           # evaluate_tree without specifying
-                                           # is_list flag. Ok to disable.
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(
-                ParseTree(input_str, self.traverser).evaluate_tree(), val)
+                ParseTree(input_str, self.traverser).evaluate_tree().val, val)
 
     def test_list_response(self):
         answers = {
-            'get_dates()' : ['Account Name', 'JAN 17', 'FEB 17', 'MAR 17',
-                'APR 17', 'MAY 17', 'JUN 17', 'JUL 17', 'AUG 17', 'SEP 17',
-                'OCT 17', 'NOV 17', 'DEC 17', 'Total']
+            'get_dates()' : ['Account Name', 'JAN 17', 'FEB 17'],
+            'get_cells_by_title( Discount/Promotion)' : [0.0, 0.0, 0.0]
         }
         for input_str, val in answers.iteritems():
-            self.assertEqual(
-                ParseTree(input_str, self.traverser).evaluate_tree(is_list=True), val)
+            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            self.assertGreaterEqual(len(res), 3)
+            self.assertEqual([i.val for i in res][:3], val)
+        answers = {
+            'get_cells_by_date(SEP 17)' : [4634.00, 4600.0, 9234.0]
+        }
+        for input_str, val in answers.iteritems():
+            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            self.assertGreaterEqual(len(res), 3)
+            self.assertEqual([i.val for i in res][-3:], val)
+
+    def test_title_annotations(self):
+        answers = {
+            'get_cells_by_date( JAN 17)' : [
+                'Rent-Tempe',
+                'Discount/Promotion',
+                'Credit Card Fee paid by tenant'
+            ],
+            'get_cells_by_title( Discount/Promotion)' : [
+                'Discount/Promotion',
+                'Discount/Promotion',
+                'Discount/Promotion'
+            ]
+        }
+        for input_str, val in answers.iteritems():
+            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            self.assertGreaterEqual(len(res), 3)
+            self.assertEqual([i.title.val for i in res][:3], val)
+
+    def test_date_annotations(self):
+        answers = {
+            'get_cells_by_date( JAN 17)' : ['JAN 17', 'JAN 17', 'JAN 17'],
+            'get_cells_by_title( Discount/Promotion)' : ['JAN 17', 'FEB 17', 'MAR 17']
+        }
+        for input_str, val in answers.iteritems():
+            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            self.assertGreaterEqual(len(res), 3)
+            self.assertEqual([i.date.val for i in res][:3], val)
+
+    def test_nested_annotations(self):
+        q = 'Add(get_cell_by_index(2, 10), get_cell_by_index(3, 10))'
+        res = ParseTree(q, self.traverser).evaluate_tree()
+        self.assertEqual(res.val, 10309)
+        self.assertEqual(res.date.val, 'OCT 17')
+        # TODO(aditya): Establish and test well-defined behavior for differing
+        # annotations in the case of singleton response (as above). Currently,
+        # we merely use the annotation of the args[0] element.
 
 if __name__ == '__main__':
     unittest.main()
