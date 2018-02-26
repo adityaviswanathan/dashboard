@@ -17,13 +17,14 @@ import sys
 # methods have bindings into the ParseTreeNode.
 my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
-import report_utils
+from report_utils import Cell
 
 # TODO(aditya): Handle None return values from ReportTraverser (in most cases
 # will need to cast to 0.0.
-# TODO(aditya): Handle argc validation to function names. For ex. 'Floor' and
-# 'Ceiling' functions both expect strictly one argument and we should throw an
-# error or warning if such a contract is disobeyed during execution.
+# TODO(aditya): Handle divide by zero.
+# TODO(aditya): Handle float arithmetic correctly. Python will return
+# approximate floating point values for float arithmetic instead of the real,
+# expected value.
 
 class ParseTreeNodeType(enum.Enum):
     CONSTANT = 0
@@ -31,25 +32,50 @@ class ParseTreeNodeType(enum.Enum):
 
 class ParseTreeNode(object):
     LIST_BINDINGS = set(['get_dates', 'get_titles', 'get_cells_by_date', 'get_cells_by_title'])
+    LIST_FUNCTIONS = set(['VectorAdd', 'VectorSubtract', 'VectorMultiply', 'VectorDivide', 'VectorFloorDivide'])
     SINGLETON_BINDINGS = set(['get_cell_by_index', 'get_cell_by_text'])
-    BINDING_IS_NUMERIC = {
-        'get_dates' : False,
-        'get_titles' : False,
-        'get_cells_by_date' : True,
-        'get_cells_by_title' : True,
-        'get_cell_by_index' : True,
-        'get_cell_by_text' : True
-    }
+    CELL_BINDINGS = set([
+        'get_cells_by_date',
+        'get_cells_by_title',
+        'get_cell_by_index',
+        'get_cell_by_text'])
     BINDINGS = LIST_BINDINGS | SINGLETON_BINDINGS
     def operator_func(self, n):
         '''
         Private helper that applies a well-defined Python built-in operator
         as a function to an argument list.
         '''
-        return (lambda a : [report_utils.Cell(
+        return (lambda a : [Cell(
             reduce(getattr(operator, n), [float(i.val) for i in a]),
             a[0].title,
             a[0].date)])
+
+    def vector_operator_func(self, n):
+        def sparse(veclist):
+            maxlen = max(map(len, veclist))
+            sparse_veclist = []
+            # Append zeros (make sparse) to any vector whose length is less
+            # than maxlen.
+            for vec in veclist:
+                sparse_veclist.append(
+                    vec + [Cell(0)]*(maxlen - len(vec)))
+            return sparse_veclist
+
+        def flatten(sparse_veclist):
+            flattened_vec = []
+            # All vectors are the same length at the time of this call, so we
+            # can safely resort to the length of the first vector in the list
+            # of vectors.
+            for i in range(0, len(sparse_veclist[0])):
+                flattened_vec.append(Cell(
+                    reduce(getattr(operator, n),
+                           [float(vec[i].val) for vec in sparse_veclist]),
+                    sparse_veclist[0][0].title,
+                    sparse_veclist[0][0].date))
+            return flattened_vec
+
+        # Args list @a is a list of vectors of cells.
+        return lambda a : [flatten(sparse(a))]
 
     def average_func(self, args):
         divide_args = [self.function_defs['Add'](args)[0],
@@ -79,10 +105,13 @@ class ParseTreeNode(object):
             return lambda a : [self.traverser.cell_to_float(
                 getattr(self.traverser, n)(*[i.val for i in a]))]
         if n in ParseTreeNode.LIST_BINDINGS:
-            if ParseTreeNode.BINDING_IS_NUMERIC[n]:
+            if n in ParseTreeNode.CELL_BINDINGS:
                 return lambda a : self.traverser.cells_to_floats(
                     getattr(self.traverser, n)(*[i.val for i in a]), True)
             return lambda a : getattr(self.traverser, n)(*[i.val for i in a])
+
+    def evaluate_function(self, func_name):
+        return self.function_defs[func_name]
 
     def __init__(self, val, node_type, traverser, parent):
         self.val = val
@@ -94,23 +123,29 @@ class ParseTreeNode(object):
         # parse tree unfolding. The type contract for lambda I/O behavior is
         # that both inputs and outputs are lists. Analytical functions cast
         # inputs to numeric values during execution.
+        # TODO(aditya): Abstract away these function definitions into a cleaner
+        # interface.
         self.function_defs = {
             'Add' : self.operator_func('add'), # varargs.
             'Subtract' : self.operator_func('sub'), # varargs.
             'Multiply' : self.operator_func('mul'), # varargs.
             'Divide' : self.operator_func('truediv'), # varargs.
             'FloorDivide' : self.operator_func('floordiv'), # varargs.
-            'Count' : (lambda a : [report_utils.Cell(
+            'Count' : (lambda a : [Cell(
                 len(a),
-                a[0].title if len(a) > 0 else "",
-                a[0].date if len(a) > 0 else "")]), # varargs.
+                a[0].title if len(a) > 0 else Cell(None),
+                a[0].date if len(a) > 0 else Cell(None))]), # varargs.
             'Average' : self.average_func, # varargs.
-            'Floor' : (lambda a : [report_utils.Cell(
-                math.floor(a[0].val),
+            'Floor' : (lambda a : [Cell(
+                math.floor(float(a[0].val)),
                 a[0].title,
                 a[0].date)]),
-            'Ceiling' : (lambda a : [report_utils.Cell(
-                math.ceil(a[0].val),
+            'Ceiling' : (lambda a : [Cell(
+                math.ceil(float(a[0].val)),
+                a[0].title,
+                a[0].date)]),
+            'Round' : (lambda a : [Cell(
+                round(float(a[0].val), int(a[1].val)),
                 a[0].title,
                 a[0].date)]),
             'get_dates' : self.traverser_func('get_dates'),
@@ -118,21 +153,45 @@ class ParseTreeNode(object):
             'get_cell_by_index' : self.traverser_func('get_cell_by_index'),
             'get_cell_by_text' : self.traverser_func('get_cell_by_text'),
             'get_cells_by_date' : self.traverser_func('get_cells_by_date'),
-            'get_cells_by_title' : self.traverser_func('get_cells_by_title')
+            'get_cells_by_title' : self.traverser_func('get_cells_by_title'),
+            'VectorAdd' : self.vector_operator_func('add'),
+            'VectorSubtract' : self.vector_operator_func('sub'),
+            'VectorMultiply' : self.vector_operator_func('mul'),
+            'VectorDivide' : self.vector_operator_func('truediv'),
+            'VectorFloorDivide' : self.vector_operator_func('floordiv')
+        }
+        self.function_argc = {
+            'Floor' : 1,
+            'Ceiling' : 1,
+            'Round' : 2,
+            'get_dates' : 0,
+            'get_titles' : 0,
+            'get_cell_by_index' : 2,
+            'get_cell_by_text' : 2,
+            'get_cells_by_date' : 1,
+            'get_cells_by_title' : 1
         }
 
     def evaluate_with_args(self, args):
         if self.type == ParseTreeNodeType.CONSTANT:
-            return [report_utils.Cell(self.val, "", "")]
+            return [Cell(self.val, None)]
         if self.val not in self.function_defs:
             raise Exception(
                 'Cannot find definition for function "' + self.val  + '".')
-        return self.function_defs[self.val](args)
+        if self.val in self.function_argc and \
+            len(args) != self.function_argc[self.val]:
+            raise Exception(
+                'Expected ' + str(self.function_argc[self.val]) + ' args for ' +
+                self.val + ', found ' + str(len(args)) + ' (' + str(args) + ').')
+        return self.evaluate_function(self.val)(args)
 
     def evaluate(self):
         if self.val not in ParseTreeNode.BINDINGS and len(self.children) > 0:
             args = []
             for c in self.children:
-                args += c.evaluate()
+                if self.val in ParseTreeNode.LIST_FUNCTIONS:
+                    args.append(c.evaluate())
+                else:
+                    args += c.evaluate()
             return self.evaluate_with_args(args)
         return self.evaluate_with_args(self.children)

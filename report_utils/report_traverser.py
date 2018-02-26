@@ -14,10 +14,17 @@ import csv
 from axis import Axis
 
 class Cell(object):
-    def __init__(self, val, title, date):
-        self.val = val
-        self.title = title
-        self.date = date
+    def __init__(self, val, title=None, date=None):
+        self.val = val # type string or float.
+                       # TODO(aditya): roll into Constant class.
+        self.title = title # type Cell.
+        self.date = date # type Cell.
+
+    def __repr__(self):
+        if self is None:
+            return ''
+        return '(' + str(self.val) + ', ' + self.title.__repr__() + ', ' + \
+            self.date.__repr__() + ')'
 
 class ReportTraverser(object):
     def __init__(
@@ -74,7 +81,7 @@ class ReportTraverser(object):
                         for col_index, col in enumerate(row):
                             if col_index < self.title_axis_index:
                                 continue
-                            vals.append(Cell(col, "", col))
+                            vals.append(Cell(col, None, None))
                         break
             if self.date_axis is Axis.COL:
                 for i, row in enumerate(csv.reader(csv_file, delimiter=',')):
@@ -82,7 +89,7 @@ class ReportTraverser(object):
                         continue
                     for col_index, col in enumerate(row):
                         if col_index == self.date_axis_index:
-                            vals.append(Cell(col, "", col))
+                            vals.append(Cell(col, None, None))
                             break
         return vals
 
@@ -99,7 +106,7 @@ class ReportTraverser(object):
                         for col_index, col in enumerate(row):
                             if col_index < self.date_axis_index:
                                 continue
-                            vals.append(Cell(col, col, ""))
+                            vals.append(Cell(col, None, None))
                         break
             if self.title_axis is Axis.COL:
                 for i, row in enumerate(csv.reader(csv_file, delimiter=',')):
@@ -107,7 +114,7 @@ class ReportTraverser(object):
                         continue
                     for col_index, col in enumerate(row):
                         if col_index == self.title_axis_index:
-                            vals.append(Cell(col, col, ""))
+                            vals.append(Cell(col, None, None))
                             break
         return vals
 
@@ -130,7 +137,7 @@ class ReportTraverser(object):
         title_index_int = int(title_index)
         date_index_int = int(date_index)
         if title_index_int < 0 or date_index_int < 0:
-            return Cell(None, "", "")
+            return Cell(None)
         row_axis_index = (self.date_axis_index if self.date_axis is Axis.ROW
                           else self.title_axis_index)
         col_axis_index = (self.date_axis_index if self.date_axis is Axis.COL
@@ -149,7 +156,7 @@ class ReportTraverser(object):
                             return Cell(col,
                                         self.get_titles()[title_index_int],
                                         self.get_dates()[date_index_int])
-        return Cell(None, "", "")
+        return Cell(None)
 
     def get_cell_by_text(self, title_text, date_text):
         row_axis_index = (self.date_axis_index if self.date_axis is Axis.ROW

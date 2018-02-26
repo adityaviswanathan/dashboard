@@ -20,6 +20,15 @@ class ParseTree(object):
         self.traverser = traverser
         self.root = None
 
+    @staticmethod
+    def evaluate_trees(trees):
+        vals = []
+        # TODO(aditya): Add input_str parameter to enable inclusion of
+        # trees in input strings.
+        for tree in trees:
+            vals.append(tree.evaluate_tree(is_list=False))
+        return vals
+
     def evaluate_tree(self, is_list=False):
         '''
         Recursively evaluates the ParseTree.
