@@ -45,7 +45,7 @@ class ReportTraverser(object):
     @staticmethod
     def denoise_cell(cell):
         noise = ['$', ',']
-        denoised = cell
+        denoised = str(cell)
         for frag in noise:
             denoised = denoised.replace(frag, '')
         return denoised
@@ -61,11 +61,14 @@ class ReportTraverser(object):
     def cells_to_floats(self, cells, skips=False):
         floats = []
         for cell in cells:
+            float_cell = None
             try:
-                floats.append(self.cell_to_float(cell))
+                float_cell = self.cell_to_float(cell)
             except Exception:
                 if skips:
                     continue
+            if float_cell is not None:
+                floats.append(float_cell)
         return floats
 
     def get_dates(self):

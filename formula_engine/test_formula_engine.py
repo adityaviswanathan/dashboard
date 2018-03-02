@@ -42,7 +42,7 @@ class ParseTreeBasic(unittest.TestCase):
     def test_nesting(self):
         answers = {
             'Add(Add(2,1), Add(3,1))' : 7.0,
-            'Subtract( Multiply(   2.5, 3.5), Add(3,     1))' : 4.75,
+            'Subtract( Multiply(   2.5, 3.5), Add(3,     1))' : 4.75
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
@@ -50,7 +50,7 @@ class ParseTreeBasic(unittest.TestCase):
     def test_varargs(self):
         answers = {
             'Add(1, 2.0, 3,  5, 7.5)' : 18.5,
-            'Subtract( Add(2, 3), Add (3,4), Add(  4,5))' : -11,
+            'Subtract( Add(2, 3), Add (3,4), Add(  4,5))' : -11
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
@@ -75,6 +75,7 @@ class ParseTreeTraverser(unittest.TestCase):
             'get_cell_by_text ( Late Fee, JAN 17  )' : 0,
             'Add(get_cell_by_text ( Late Fee, OCT 17  ), get_cell_by_index(5, 11))' : 510,
             'Ceiling(Average(get_cells_by_date(SEP 17)))' : 1122,
+            'Ceiling(Average(get_cells_by_date(   JAN 17   )))' : 1268
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(

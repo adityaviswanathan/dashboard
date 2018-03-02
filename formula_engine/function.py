@@ -12,7 +12,7 @@ import operator
 import os
 import sys
 # Append parent dir to $PYTHONPATH to import ReportTraverser, whose public
-# methods have bindings into the ParseTreeNode.
+# methods have bindings into Function.
 my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from report_utils import Cell
@@ -72,8 +72,13 @@ class Function(object):
         return [Cell(val, None)]
 
     def average_func(self, args):
-        divide_args = [self.function_defs['Add'](args)[0],
-            self.function_defs['Count'](args)[0]]
+        fails = 0
+        if self.traverser is not None:
+            fails = len(args) - len(self.traverser.cells_to_floats(args, True))
+        subtract_args = [self.function_defs['Count'](args)[0],
+            Function.constant_func(fails)[0]]
+        real_count = self.function_defs['Subtract'](subtract_args)[0]
+        divide_args = [self.function_defs['Add'](args)[0], real_count]
         return self.function_defs['Divide'](divide_args)
 
     def traverser_func(self, n):
@@ -85,12 +90,6 @@ class Function(object):
         which is handled here. In the case we cannot safely convert a
         particular cell to numeric, we skip over it.
         '''
-        # TODO(aditya): Handle typecast skips more gracefully. As of now, this
-        # will cause integrity bugs for composition functions like 'Average'.
-        # For ex. if we computed Average over a list of k string values where
-        # we were only able to successfully convert j < k values to numeric,
-        # we would in reality be computing the Sum of those j values divided by
-        # k, when in reality the Sum of j values should be divided by j.
         if n in Function.SINGLETON_BINDINGS:
             # If return type of ReportTraverser method is a singleton, we need to
             # convert the returned string into its equivalent float value before
