@@ -11,13 +11,13 @@ __email__ = 'aditya@adityaviswanathan.com'
 from parse_tree_node import ParseTreeNode, ParseTreeNodeType
 
 class ParseTree(object):
-    token_arg_start = '('
-    token_arg_end = ')'
-    token_arg_delimiter = ','
+    TOKEN_ARG_START = '('
+    TOKEN_ARG_END = ')'
+    TOKEN_ARG_DELIMITER = ','
 
-    def __init__(self, input_str, traverser=None):
+    def __init__(self, input_str, traversers=[]):
         self.input = input_str
-        self.traverser = traverser
+        self.traversers = traversers
         self.root = None
 
     @staticmethod
@@ -47,10 +47,10 @@ class ParseTree(object):
         stutter = 0
         self.root = curr = None
         for index, c in enumerate(self.input):
-            if c == ParseTree.token_arg_start:
+            if c == ParseTree.TOKEN_ARG_START:
                 func = ParseTreeNode(self.input[stutter:index].strip(),
                                      ParseTreeNodeType.FUNCTION,
-                                     self.traverser,
+                                     self.traversers,
                                      curr)
                 if self.root is None:
                     self.root = func
@@ -58,22 +58,22 @@ class ParseTree(object):
                     curr.children.append(func)
                 curr = func
                 stutter = index + 1
-            elif c == ParseTree.token_arg_end:
+            elif c == ParseTree.TOKEN_ARG_END:
                 if stutter != index and self.input[stutter:index].strip():
                     # Arg before delimiter must have been CONSTANT.
                     arg = ParseTreeNode(self.input[stutter:index].strip(),
                                         ParseTreeNodeType.CONSTANT,
-                                        self.traverser,
+                                        self.traversers,
                                         curr)
                     curr.children.append(arg)
                 curr = curr.parent
                 stutter = index + 1
-            elif c == ParseTree.token_arg_delimiter:
+            elif c == ParseTree.TOKEN_ARG_DELIMITER:
                 if stutter != index:
                     # Arg before delimiter must have been CONSTANT.
                     arg = ParseTreeNode(self.input[stutter:index].strip(),
                                         ParseTreeNodeType.CONSTANT,
-                                        self.traverser,
+                                        self.traversers,
                                         curr)
                     curr.children.append(arg)
                 stutter = index + 1

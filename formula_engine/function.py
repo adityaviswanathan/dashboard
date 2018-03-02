@@ -18,15 +18,40 @@ sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from report_utils import Cell
 
 class Function(object):
-    LIST_BINDINGS = set(['get_dates', 'get_titles', 'get_cells_by_date', 'get_cells_by_title'])
-    LIST_FUNCTIONS = set(['VectorAdd', 'VectorSubtract', 'VectorMultiply', 'VectorDivide', 'VectorFloorDivide'])
-    SINGLETON_BINDINGS = set(['get_cell_by_index', 'get_cell_by_text'])
+    UNARY_BINDINGS = set([
+        'get_dates',
+        'get_titles'])
+    LIST_BINDINGS = set([
+        'get_dates',
+        'get_titles',
+        'get_cells_by_date',
+        'get_cells_by_title'])
+    LIST_FUNCTIONS = set([
+        'VectorAdd',
+        'VectorSubtract',
+        'VectorMultiply',
+        'VectorDivide',
+        'VectorFloorDivide'])
+    SINGLETON_BINDINGS = set([
+        'get_cell_by_index',
+        'get_cell_by_text'])
     CELL_BINDINGS = set([
         'get_cells_by_date',
         'get_cells_by_title',
         'get_cell_by_index',
         'get_cell_by_text'])
     BINDINGS = LIST_BINDINGS | SINGLETON_BINDINGS
+    FUNCTION_ARGC = {
+        'Floor' : 1,
+        'Ceiling' : 1,
+        'Round' : 2,
+        'get_dates' : 1,
+        'get_titles' : 1,
+        'get_cell_by_index' : 3,
+        'get_cell_by_text' : 3,
+        'get_cells_by_date' : 2,
+        'get_cells_by_title' : 2
+    }
 
     @staticmethod
     def operator_func(n):
@@ -71,10 +96,19 @@ class Function(object):
     def constant_func(val):
         return [Cell(val, None)]
 
+    def report_func(args):
+        return self.traverser(args[1])
+
+    def ein(sliced):
+        return sliced if sliced is not None else []
+
     def average_func(self, args):
         fails = 0
-        if self.traverser is not None:
-            fails = len(args) - len(self.traverser.cells_to_floats(args, True))
+        # TODO(aditya): Fix integrity of Average and related compositions.
+        # This needs to temporarily break to enable lists of ParseTrees to
+        # be computed over.
+        # if self.traversers is not None:
+        #     fails = len(args) - len(self.traverser.cells_to_floats(args, True))
         subtract_args = [self.function_defs['Count'](args)[0],
             Function.constant_func(fails)[0]]
         real_count = self.function_defs['Subtract'](subtract_args)[0]
@@ -95,32 +129,23 @@ class Function(object):
             # convert the returned string into its equivalent float value before
             # continuing evaluation, which is handled via
             # ReportTraverser.cell_to_float().
-            return lambda a : [self.traverser.cell_to_float(
-                getattr(self.traverser, n)(*[i.val for i in a]))]
+            return lambda a : [self.traversers[int(a[0].val)].cell_to_float(
+                getattr(self.traversers[int(a[0].val)], n)(*[i.val for i in (a[1:] if len(a) > 1 else [])]))]
         if n in Function.LIST_BINDINGS:
+            if n in Function.UNARY_BINDINGS:
+                return lambda a : getattr(self.traversers[int(a[0].val)], n)()
             if n in Function.CELL_BINDINGS:
-                return lambda a : self.traverser.cells_to_floats(
-                    getattr(self.traverser, n)(*[i.val for i in a]), True)
-            return lambda a : getattr(self.traverser, n)(*[i.val for i in a])
+                return lambda a : self.traversers[int(a[0].val)].cells_to_floats(
+                    getattr(self.traversers[int(a[0].val)], n)(*[i.val for i in (a[1:] if len(a) > 1 else [])]), True)
 
-    FUNCTION_ARGC = {
-        'Floor' : 1,
-        'Ceiling' : 1,
-        'Round' : 2,
-        'get_dates' : 0,
-        'get_titles' : 0,
-        'get_cell_by_index' : 2,
-        'get_cell_by_text' : 2,
-        'get_cells_by_date' : 1,
-        'get_cells_by_title' : 1
-    }
 
     def is_recognized_function(self):
         return self.func_name in self.function_defs.keys()
 
-    def __init__(self, func_name, traverser):
+    # def __init__(self, func_name, traverser):
+    def __init__(self, func_name, traversers=[]):
         self.func_name = func_name
-        self.traverser = traverser
+        self.traversers = traversers
         self.function_defs = {
             'Add' : Function.operator_func('add'), # varargs.
             'Subtract' : Function.operator_func('sub'), # varargs.
@@ -154,7 +179,8 @@ class Function(object):
             'VectorSubtract' : Function.vector_operator_func('sub'),
             'VectorMultiply' : Function.vector_operator_func('mul'),
             'VectorDivide' : Function.vector_operator_func('truediv'),
-            'VectorFloorDivide' : Function.vector_operator_func('floordiv')
+            'VectorFloorDivide' : Function.vector_operator_func('floordiv'),
+            'Report' : lambda a : Function.report_func(a)
         }
 
     def evaluate(self, args=[]):

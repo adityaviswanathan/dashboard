@@ -13,6 +13,9 @@ import csv
 
 from axis import Axis
 
+# TODO(aditya): Move to model where caller can manage the lifecycle of
+# ReportTraversers in order to avoid excessive I/O to data files.
+
 class Cell(object):
     def __init__(self, val, title=None, date=None):
         self.val = val # type string or float.

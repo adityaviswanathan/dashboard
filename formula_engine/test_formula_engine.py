@@ -70,65 +70,65 @@ class ParseTreeTraverser(unittest.TestCase):
 
     def test_traverser_bindings(self):
         answers = {
-            'Count(get_dates())' : 14,
-            'Count( get_titles (  )  )' : 51,
-            'get_cell_by_text ( Late Fee, JAN 17  )' : 0,
-            'Add(get_cell_by_text ( Late Fee, OCT 17  ), get_cell_by_index(5, 11))' : 510,
-            'Ceiling(Average(get_cells_by_date(SEP 17)))' : 1122,
-            'Ceiling(Average(get_cells_by_date(   JAN 17   )))' : 1268
+            'Count(get_dates(0))' : 14,
+            'Count( get_titles ( 0 )  )' : 51,
+            'get_cell_by_text (0, Late Fee, JAN 17  )' : 0,
+            'Add(get_cell_by_text (0, Late Fee, OCT 17  ), get_cell_by_index(0, 5, 11))' : 510,
+            'Ceiling(Average(get_cells_by_date(0, SEP 17)))' : 1122,
+            'Ceiling(Average(get_cells_by_date(0,    JAN 17   )))' : 1268
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(
-                ParseTree(input_str, self.traverser).evaluate_tree().val, val)
+                ParseTree(input_str, [self.traverser]).evaluate_tree().val, val)
 
     def test_list_response(self):
         answers = {
-            'get_dates()' : ['Account Name', 'JAN 17', 'FEB 17'],
-            'get_cells_by_title( Discount/Promotion)' : [0.0, 0.0, 0.0]
+            'get_dates(0)' : ['Account Name', 'JAN 17', 'FEB 17'],
+            'get_cells_by_title(0, Discount/Promotion)' : [0.0, 0.0, 0.0]
         }
         for input_str, val in answers.iteritems():
-            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            res = ParseTree(input_str, [self.traverser]).evaluate_tree(is_list=True)
             self.assertGreaterEqual(len(res), 3)
             self.assertEqual([i.val for i in res][:3], val)
         answers = {
-            'get_cells_by_date(SEP 17)' : [4634.00, 4600.0, 9234.0]
+            'get_cells_by_date(0, SEP 17)' : [4634.00, 4600.0, 9234.0]
         }
         for input_str, val in answers.iteritems():
-            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            res = ParseTree(input_str, [self.traverser]).evaluate_tree(is_list=True)
             self.assertGreaterEqual(len(res), 3)
             self.assertEqual([i.val for i in res][-3:], val)
 
     def test_title_annotations(self):
         answers = {
-            'get_cells_by_date( JAN 17)' : [
+            'get_cells_by_date(0, JAN 17)' : [
                 'Rent-Tempe',
                 'Discount/Promotion',
                 'Credit Card Fee paid by tenant'
             ],
-            'get_cells_by_title( Discount/Promotion)' : [
+            'get_cells_by_title(0, Discount/Promotion)' : [
                 'Discount/Promotion',
                 'Discount/Promotion',
                 'Discount/Promotion'
             ]
         }
         for input_str, val in answers.iteritems():
-            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            res = ParseTree(input_str, [self.traverser]).evaluate_tree(is_list=True)
             self.assertGreaterEqual(len(res), 3)
             self.assertEqual([i.title.val for i in res][:3], val)
 
     def test_date_annotations(self):
         answers = {
-            'get_cells_by_date( JAN 17)' : ['JAN 17', 'JAN 17', 'JAN 17'],
-            'get_cells_by_title( Discount/Promotion)' : ['JAN 17', 'FEB 17', 'MAR 17']
+            'get_cells_by_date(0, JAN 17)' : ['JAN 17', 'JAN 17', 'JAN 17'],
+            'get_cells_by_title(0, Discount/Promotion)' : ['JAN 17', 'FEB 17', 'MAR 17']
         }
         for input_str, val in answers.iteritems():
-            res = ParseTree(input_str, self.traverser).evaluate_tree(is_list=True)
+            res = ParseTree(input_str, [self.traverser]).evaluate_tree(is_list=True)
             self.assertGreaterEqual(len(res), 3)
             self.assertEqual([i.date.val for i in res][:3], val)
 
     def test_nested_annotations(self):
-        q = 'Add(get_cell_by_index(2, 10), get_cell_by_index(3, 10))'
-        res = ParseTree(q, self.traverser).evaluate_tree()
+        q = 'Add(get_cell_by_index(0, 2, 10), get_cell_by_index(0,3, 10))'
+        res = ParseTree(q, [self.traverser]).evaluate_tree()
         self.assertEqual(res.val, 10309)
         self.assertEqual(res.date.val, 'OCT 17')
         # TODO(aditya): Establish and test well-defined behavior for differing
@@ -145,11 +145,11 @@ class ParseTreeTraverser(unittest.TestCase):
         }
         fixed_index_check = 9
         for func, out in vector_funcs.iteritems():
-            q0 = 'get_cells_by_title( Discount/Promotion)'
-            q1 = 'get_cells_by_date(OCT 17)'
-            q2 = 'get_cells_by_date(NOV 17)'
+            q0 = 'get_cells_by_title(0, Discount/Promotion)'
+            q1 = 'get_cells_by_date(0,OCT 17)'
+            q2 = 'get_cells_by_date(0,NOV 17)'
             q = func + '(' + q0 + ', ' + q1  + ', ' + q2 + ')'
-            res = ParseTree(q, self.traverser).evaluate_tree()
+            res = ParseTree(q, [self.traverser]).evaluate_tree()
             self.assertEqual(round([i.val for i in res][fixed_index_check], 1),
                              out[0])
             self.assertEqual([i.title for i in res][fixed_index_check].val, out[1])
@@ -183,15 +183,37 @@ class ParseTreeTraversers(unittest.TestCase):
     # Add(1.get_cells_by_title('LANDSCAPING'), 2.get_cells_by_title('a'))
     # Add(get_cells_by_title('LANDSCAPING'))
     #
+    # Add(Report(1, get_cell_by_index(2, 10)),
+    #     Report(2, get_cell_by_index(5, 19)))
+    #
     #
     def test_eval_trees(self):
-        q1 = 'Add(get_cell_by_index(2, 10), get_cell_by_index(3, 10))'
-        q2 = 'Add(get_cell_by_index(3, 10), get_cell_by_index(4, 10))'
-        tree1 = ParseTree(q1, self.traversers[0])
-        tree2 = ParseTree(q2, self.traversers[1])
+        q1 = 'Add(get_cell_by_index(0, 2, 10), get_cell_by_index(0, 3, 10))'
+        q2 = 'Add(get_cell_by_index(0, 3, 10), get_cell_by_index(0, 4, 10))'
+        tree1 = ParseTree(q1, [self.traversers[0]])
+        tree2 = ParseTree(q2, [self.traversers[1]])
         responses = ParseTree.evaluate_trees([tree1, tree2])
         self.assertEqual(responses[0].val, 10309)
         self.assertEqual(responses[1].val, -50)
+
+    def test_eval_manytrees(self):
+        q = 'Add(get_cell_by_index(0, 2, 10), get_cell_by_index(0, 3, 10))'
+        trees = [ParseTree(q, [self.traversers[0]])] * 100
+        responses = ParseTree.evaluate_trees(trees)
+        self.assertEqual(responses[0].val, 10309)
+        self.assertEqual(responses[99].val, 10309)
+
+
+    # TODO(aditya): Move language to this model, where ParseTree can be
+    # computed over a set of ReportTraversers and individual traverser
+    # functions are called by supplying the report index as a parameter (or
+    # something approximately similar.
+    # def test_eval_tree_by_index(self):
+    #     q = 'Add(Report(1, get_cell_by_index(0, 2, 10)), ' + \
+    #         'Report(2, get_cell_by_index(5, 19)))'
+    #     tree = ParseTree(q, self.traversers)
+    #     res = tree.evaluate_tree()
+    #     self.assertEqual(res[0].val, 10259)
 
 class ParseTreeErrors(unittest.TestCase):
     @classmethod
@@ -213,17 +235,17 @@ class ParseTreeErrors(unittest.TestCase):
         ]
         with self.assertRaises(Exception):
             for nonexistent in nonexistents:
-                ParseTree(nonexistent, self.traverser).evaluate_tree()
+                ParseTree(nonexistent, [self.traverser]).evaluate_tree()
 
     def test_invalid_argc(self):
         invalids = [
             'Floor(1.1, 2.1)',
-            'Floor(get_cell_by_index(2, 10), get_cell_by_index(3, 10))',
-            'get_cell_by_index(2, 10, 20)'
+            'Floor(get_cell_by_index(0, 2, 10), get_cell_by_index(0, 3, 10))',
+            'get_cell_by_index(0, 2, 10, 20)'
         ]
         with self.assertRaises(Exception):
             for invalid in invalids:
-                ParseTree(invalid, self.traverser).evaluate_tree()
+                ParseTree(invalid, [self.traverser]).evaluate_tree()
 
 if __name__ == '__main__':
     unittest.main()

@@ -25,17 +25,17 @@ class ParseTreeNodeType(enum.Enum):
     FUNCTION = 1
 
 class ParseTreeNode(object):
-    def __init__(self, val, node_type, traverser, parent):
+    def __init__(self, val, node_type, traversers, parent):
         self.val = val
         self.type = node_type
-        self.traverser = traverser
+        self.traversers = traversers
         self.parent = parent
         self.children = []
 
     def evaluate_with_args(self, args):
         return (Function.constant_func(self.val) \
                 if self.type == ParseTreeNodeType.CONSTANT \
-                else Function(self.val, self.traverser).evaluate(args))
+                else Function(self.val, self.traversers).evaluate(args))
 
     def evaluate(self):
         if self.val not in Function.BINDINGS and len(self.children) > 0:
