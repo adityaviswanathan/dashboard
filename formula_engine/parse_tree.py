@@ -33,6 +33,7 @@ class ParseTree(object):
         '''
         if self.root is None:
             self.build_tree()
+        self.root.set_is_list(is_list)
         if is_list:
             return self.root.evaluate()
         return self.root.evaluate()[0]

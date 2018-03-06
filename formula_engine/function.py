@@ -31,7 +31,7 @@ class Function(object):
         'VectorMultiply',
         'VectorDivide',
         'VectorFloorDivide'])
-    # Expects list arguments.
+    # Expects numeric arguments. Skips arg if cast to numeric fails.
     NUMERIC_FUNCTIONS = set([
         'Add',
         'Subtract',
@@ -74,6 +74,7 @@ class Function(object):
         'get_cells_by_title' : 2
     }
     BINDINGS = LIST_BINDINGS | SINGLETON_BINDINGS
+    RETURNS_LIST = LIST_BINDINGS | VECTOR_FUNCTIONS
 
     @staticmethod
     def operator_func(n):
