@@ -41,7 +41,7 @@ class ParseTreeNode(object):
         if self.val not in Function.BINDINGS and len(self.children) > 0:
             args = []
             for c in self.children:
-                if self.val in Function.LIST_FUNCTIONS:
+                if self.val in Function.VECTOR_FUNCTIONS:
                     args.append(c.evaluate())
                 else:
                     args += c.evaluate()

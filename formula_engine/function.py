@@ -18,23 +18,26 @@ sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from report_utils import ReportTraverser, Cell
 
 class Function(object):
+    # Returns a list of cells.
     LIST_BINDINGS = set([
         'get_dates',
         'get_titles',
         'get_cells_by_date',
         'get_cells_by_title'])
-    LIST_FUNCTIONS = set([
+    # Expects list arguments.
+    VECTOR_FUNCTIONS = set([
         'VectorAdd',
         'VectorSubtract',
         'VectorMultiply',
         'VectorDivide',
         'VectorFloorDivide'])
+    # Expects list arguments.
     NUMERIC_FUNCTIONS = set([
-        'VectorAdd',
-        'VectorSubtract',
-        'VectorMultiply',
-        'VectorDivide',
-        'VectorFloorDivide'
+        'Add',
+        'Subtract',
+        'Multiply',
+        'Divide',
+        'FloorDivide',
         'VectorAdd',
         'VectorSubtract',
         'VectorMultiply',
@@ -48,15 +51,16 @@ class Function(object):
         'Floor',
         'Ceiling',
         'Round'])
+    # Returns a singleton cell list.
     SINGLETON_BINDINGS = set([
         'get_cell_by_index',
         'get_cell_by_text'])
+    # Returns items of type Cell.
     CELL_BINDINGS = set([
         'get_cells_by_date',
         'get_cells_by_title',
         'get_cell_by_index',
         'get_cell_by_text'])
-    BINDINGS = LIST_BINDINGS | SINGLETON_BINDINGS
     FUNCTION_ARGC = {
         'Floor' : 1,
         'Ceiling' : 1,
@@ -69,6 +73,7 @@ class Function(object):
         'get_cells_by_date' : 2,
         'get_cells_by_title' : 2
     }
+    BINDINGS = LIST_BINDINGS | SINGLETON_BINDINGS
 
     @staticmethod
     def operator_func(n):
@@ -130,45 +135,35 @@ class Function(object):
         which is handled here. In the case we cannot safely convert a
         particular cell to numeric, we skip over it.
         '''
-        def values(arr):
-            return [i.val for i in arr]
-
-        def dispatch(arr, node, is_list=False):
+        def dispatch(arr, is_list):
             traverser_index = int(arr[0].val) # 1st arg is report index.
             traverser_args = arr[1:] if len(arr) > 1 else []
             # Execute the ReportTraverser binding.
-            res = getattr(node.traversers[traverser_index], n)(*values(traverser_args))
-            # Don't typecast to float if there is no (arithmetic) caller
-            # requiring numeric-only response.
-            if node.caller is None or node.caller.val not in Function.NUMERIC_FUNCTIONS:
-                return res
-            return ReportTraverser.cell_to_float(res) if not is_list \
-                else ReportTraverser.cells_to_floats(res, True)
+            vals = lambda a : [i.val for i in a]
+            res = getattr(self.traversers[traverser_index], n)(*vals(traverser_args))
+            wrapped_res = res if is_list else [res]
+            # Don't typecast to float if the caller does not require a numeric
+            # response.
+            if self.parent is None or self.parent.val not in Function.NUMERIC_FUNCTIONS:
+                return wrapped_res
+            return ReportTraverser.cells_to_floats(wrapped_res, True)
 
-        if n in Function.SINGLETON_BINDINGS:
-            return lambda a : [dispatch(a, self)]
-        if n in Function.LIST_BINDINGS:
-            return lambda a : dispatch(a, self, True)
+        return lambda a : dispatch(a, n in Function.LIST_BINDINGS)
 
     def if_else_func(self):
-        def condition(arr):
-            return arr[0].val
-
-        def success(arr):
-            return arr[1]
-
-        def failure(arr):
-            return arr[2]
-
-        return lambda a : [success(a) if condition(a) > 0.0 else failure(a)]
+        # Expects boolean numeric as Cell value.
+        check_condition = lambda a : a[0].val > 0.0
+        success = lambda a : a[1]
+        failure = lambda a : a[2]
+        return lambda a : [success(a) if check_condition(a) else failure(a)]
 
     def is_recognized_function(self):
         return self.func_name in self.function_defs.keys()
 
-    def __init__(self, func_name, traversers=[], caller=None):
+    def __init__(self, func_name, traversers=[], parent=None):
         self.func_name = func_name
         self.traversers = traversers
-        self.caller = caller
+        self.parent = parent
         self.function_defs = {
             'Add' : Function.operator_func('add'), # varargs.
             'Subtract' : Function.operator_func('sub'), # varargs.

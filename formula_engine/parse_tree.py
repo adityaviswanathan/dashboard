@@ -23,8 +23,6 @@ class ParseTree(object):
     @staticmethod
     def evaluate_trees(trees):
         vals = []
-        # TODO(aditya): Add input_str parameter to enable inclusion of
-        # trees in input strings.
         for tree in trees:
             vals.append(tree.evaluate_tree(is_list=False))
         return vals
