@@ -47,26 +47,30 @@ class ReportTraverser(object):
 
     @staticmethod
     def denoise_cell(cell):
+        if isinstance(cell, bool):
+            return '1' if cell else '0'
         noise = ['$', ',']
         denoised = str(cell)
         for frag in noise:
             denoised = denoised.replace(frag, '')
         return denoised
 
-    def cell_to_float(self, cell):
+    @staticmethod
+    def cell_to_float(cell):
         try:
             return Cell(float(ReportTraverser.denoise_cell(cell.val).strip()),
                         cell.title,
                         cell.date)
         except ValueError:
-            raise Exception('Cannot convert ' + cell.val + ' to numeric')
+            raise Exception('Cannot convert ' + str(cell.val) + ' to numeric')
 
-    def cells_to_floats(self, cells, skips=False):
+    @staticmethod
+    def cells_to_floats(cells, skips=False):
         floats = []
         for cell in cells:
             float_cell = None
             try:
-                float_cell = self.cell_to_float(cell)
+                float_cell = ReportTraverser.cell_to_float(cell)
             except Exception:
                 if skips:
                     continue

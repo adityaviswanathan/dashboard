@@ -35,7 +35,7 @@ class ParseTreeNode(object):
     def evaluate_with_args(self, args):
         return (Function.constant_func(self.val) \
                 if self.type == ParseTreeNodeType.CONSTANT \
-                else Function(self.val, self.traversers).evaluate(args))
+                else Function(self.val, self.traversers, self.parent).evaluate(args))
 
     def evaluate(self):
         if self.val not in Function.BINDINGS and len(self.children) > 0:

@@ -55,6 +55,33 @@ class ParseTreeBasic(unittest.TestCase):
         for input_str, val in answers.iteritems():
             self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
 
+    def test_comparators(self):
+        answers = {
+            'GreaterThan(1,1)' : 0,
+            'GreaterThan(1.1,1)' : 1,
+            'GreaterThan(  1  ,  1.1  )' : 0,
+            'GreaterEqualThan(1,1)' : 1,
+            'GreaterEqualThan(1.1,1.1)' : 1,
+            'GreaterEqualThan(1.1,1.2)' : 0,
+            'LessThan(1,1)' : 0,
+            'LessThan(1.1,1)' : 0,
+            'LessThan(  1  ,  1.1  )' : 1,
+            'LessEqualThan(1,1)' : 1,
+            'LessEqualThan(1.1,1.1)' : 1,
+            'LessEqualThan(1.1,1.2)' : 1,
+            'LessEqualThan(0.1, 10, 1, 100)' : 1 # TODO(aditya): clean up varargs definition.
+        }
+        for input_str, val in answers.iteritems():
+            self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
+
+    def test_if_else(self):
+        answers = {
+            'IfElse(GreaterThan(1,1), 1, -1)' : '-1',
+            'IfElse(GreaterThan(2,1), 1, -1)' : '1',
+        }
+        for input_str, val in answers.iteritems():
+            self.assertEqual(ParseTree(input_str).evaluate_tree().val, val)
+
 class ParseTreeTraverser(unittest.TestCase):
     @classmethod
     def setUpClass(self):
@@ -72,10 +99,15 @@ class ParseTreeTraverser(unittest.TestCase):
         answers = {
             'Count(get_dates(0))' : 14,
             'Count( get_titles ( 0 )  )' : 51,
-            'get_cell_by_text (0, Late Fee, JAN 17  )' : 0,
+            'get_cell_by_text (0, Late Fee, JAN 17  )' : '0.0',
             'Add(get_cell_by_text (0, Late Fee, OCT 17  ), get_cell_by_index(0, 5, 11))' : 510,
             'Ceiling(Average(get_cells_by_date(0, SEP 17)))' : 1122,
-            'Ceiling(Average(get_cells_by_date(0,    JAN 17   )))' : 1268
+            'Ceiling(Average(get_cells_by_date(0,    JAN 17   )))' : 1268,
+            'Count(get_cells_by_date(0,    JAN 17   ))' : 50,
+            'IfElse(GreaterThan(2,1), Count(get_dates(0)), Count(get_titles(0)))' : 14,
+            # TODO(aditya): Fix test below. List substitution for success/failure is causing an
+            # argc exception.
+            # 'IfElse(GreaterThan(2,1), get_dates(0), Count(get_titles(0)))' : 14,
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(
@@ -83,27 +115,21 @@ class ParseTreeTraverser(unittest.TestCase):
 
     def test_list_response(self):
         answers = {
-            'get_dates(0)' : ['Account Name', 'JAN 17', 'FEB 17'],
-            'get_cells_by_title(0, Discount/Promotion)' : [0.0, 0.0, 0.0]
+            'get_dates(0)' : ['AUG 17', 'SEP 17', 'OCT 17'],
+            'get_cells_by_title(0, Discount/Promotion)' : ['0.0', '0.0', '-50.0'],
+            'get_cells_by_date(0, SEP 17)' : ['$4,600.00', '', '$9,234.00']
         }
         for input_str, val in answers.iteritems():
             res = ParseTree(input_str, [self.traverser]).evaluate_tree(is_list=True)
             self.assertGreaterEqual(len(res), 3)
-            self.assertEqual([i.val for i in res][:3], val)
-        answers = {
-            'get_cells_by_date(0, SEP 17)' : [4634.00, 4600.0, 9234.0]
-        }
-        for input_str, val in answers.iteritems():
-            res = ParseTree(input_str, [self.traverser]).evaluate_tree(is_list=True)
-            self.assertGreaterEqual(len(res), 3)
-            self.assertEqual([i.val for i in res][-3:], val)
+            self.assertEqual([i.val for i in res][-6:-3], val)
 
     def test_title_annotations(self):
         answers = {
             'get_cells_by_date(0, JAN 17)' : [
+                'Income',
                 'Rent-Tempe',
-                'Discount/Promotion',
-                'Credit Card Fee paid by tenant'
+                'Discount/Promotion'
             ],
             'get_cells_by_title(0, Discount/Promotion)' : [
                 'Discount/Promotion',
@@ -172,21 +198,6 @@ class ParseTreeTraversers(unittest.TestCase):
                                          axis_decision.title_axis,
                                          axis_decision.title_index)]
 
-    #
-    #
-    # TODO(aditya):
-    # Potential UI: specify formulas for each report (copy/paste
-    # acceptable) where the user can specify which reports apply to a
-    # particular call:
-    #
-    # Add(1.get_cell_by_index(2, 10), 2.get_cell_by_index(5, 19))
-    # Add(1.get_cells_by_title('LANDSCAPING'), 2.get_cells_by_title('a'))
-    # Add(get_cells_by_title('LANDSCAPING'))
-    #
-    # Add(Report(1, get_cell_by_index(2, 10)),
-    #     Report(2, get_cell_by_index(5, 19)))
-    #
-    #
     def test_eval_trees(self):
         q1 = 'Add(get_cell_by_index(0, 2, 10), get_cell_by_index(0, 3, 10))'
         q2 = 'Add(get_cell_by_index(0, 3, 10), get_cell_by_index(0, 4, 10))'
@@ -203,17 +214,11 @@ class ParseTreeTraversers(unittest.TestCase):
         self.assertEqual(responses[0].val, 10309)
         self.assertEqual(responses[99].val, 10309)
 
-
-    # TODO(aditya): Move language to this model, where ParseTree can be
-    # computed over a set of ReportTraversers and individual traverser
-    # functions are called by supplying the report index as a parameter (or
-    # something approximately similar.
-    # def test_eval_tree_by_index(self):
-    #     q = 'Add(Report(1, get_cell_by_index(0, 2, 10)), ' + \
-    #         'Report(2, get_cell_by_index(5, 19)))'
-    #     tree = ParseTree(q, self.traversers)
-    #     res = tree.evaluate_tree()
-    #     self.assertEqual(res[0].val, 10259)
+    def test_eval_tree_by_index(self):
+        q = 'Add(get_cell_by_index(0, 2, 10), ' + \
+            'get_cell_by_index(1, 5, 10))'
+        res = ParseTree(q, self.traversers).evaluate_tree()
+        self.assertEqual(res.val, 10579)
 
 class ParseTreeErrors(unittest.TestCase):
     @classmethod
