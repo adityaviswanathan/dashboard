@@ -120,6 +120,9 @@ class ParseTreeTraverser(unittest.TestCase):
             self.assertEqual([i.val for i in res][0:3], val)
         answers = {
             'Count(IfElse(GreaterThan(2,1), get_dates(0), get_titles(0)))' : 14,
+            'Count(IfElse(GreaterThan(1,2), get_dates(0), get_titles(0)))' : 51,
+            'Add(IfElse(GreaterThan(1,2), 1, Count(get_titles(0))), \
+                 IfElse(GreaterThan(2,1), 1, Count(get_titles(0))))' : 52
         }
         for input_str, val in answers.iteritems():
             self.assertEqual(

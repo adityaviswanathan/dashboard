@@ -37,28 +37,41 @@ class ParseTreeNode(object):
         self.is_list = is_list
 
     def evaluate_with_args(self, args):
-        # TODO(aditya): Abstract away IfElse specific logic from eval.
-        parent_uses_args = self.parent is not None and \
-            Function(self.parent.val).is_recognized_function()
-        if self.val == 'IfElse' and (self.is_list or parent_uses_args):
-            return Function(self.val, self.traversers, self.parent).evaluate(args)[0]
+        f = Function(self.val, self.traversers, self.parent)
+        # If the function to be evaluated is IfElse and the caller requests
+        # a return value of list, we need to return the list which is the first
+        # and only element in the response from Function.
+        if self.val == 'IfElse' and self.is_list:
+            return f.evaluate(args)[0]
         return (Function.constant_func(self.val) \
                 if self.type == ParseTreeNodeType.CONSTANT \
-                else Function(self.val, self.traversers, self.parent).evaluate(args))
+                else f.evaluate(args))
 
     def evaluate(self):
+        # Specially handles arguments for IfElse. In particular, the first arg
+        # is a boolean numeric condition whereas the following two args are
+        # success/failure blocks that are substituted depending on the outcome
+        # of the condition.
+        def insert_if_else_arg(child, child_index, args):
+            if self.val == 'IfElse':
+                if child_index > 0 and child.val in Function.RETURNS_LIST:
+                    args.append(child.evaluate())
+                else:
+                    args += child.evaluate()
+                return True
+            return False
+
         if self.val not in Function.BINDINGS and len(self.children) > 0:
             args = []
-            for c_index, c in enumerate(self.children):
-                # TODO(aditya): Abstract away IfElse specific logic from eval.
-                if self.val == 'IfElse':
-                    if c_index > 0 and c.val in Function.RETURNS_LIST:
-                        args.append(c.evaluate())
-                    else:
-                        args += c.evaluate()
+            for child_index, child in enumerate(self.children):
+                # Handle IfElse function args.
+                if insert_if_else_arg(child, child_index, args):
+                    continue
+                # Append the list responses from vector functions to @args.
                 elif self.val in Function.VECTOR_FUNCTIONS:
-                    args.append(c.evaluate())
+                    args.append(child.evaluate())
+                # Merge the list responses from non-vector functions to @args.
                 else:
-                    args += c.evaluate()
+                    args += child.evaluate()
             return self.evaluate_with_args(args)
         return self.evaluate_with_args(self.children)

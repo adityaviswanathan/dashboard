@@ -151,12 +151,24 @@ class Function(object):
 
         return lambda a : dispatch(a, n in Function.LIST_BINDINGS)
 
-    def if_else_func(self):
-        # Expects boolean numeric as Cell value.
-        check_condition = lambda a : a[0].val > 0.0
-        success = lambda a : a[1]
-        failure = lambda a : a[2]
-        return lambda a : [success(a) if check_condition(a) else failure(a)]
+    def if_else_func(self, args):
+        # Expects boolean numeric as condition value.
+        check_condition = lambda args : args[0].val > 0.0
+        def success_case(args):
+            # If the return value of the success block is list and this is not
+            # the root node, then return the list itself instead of wrapping a
+            # singleton.
+            if isinstance(args[1], list) and self.parent is not None:
+                return args[1]
+            return [args[1]]
+        def failure_case(args):
+            # If the return value of the success block is list and this is not
+            # the root node, then return the list itself instead of wrapping a
+            # singleton.
+            if isinstance(args[2], list) and self.parent is not None:
+                return args[2]
+            return [args[2]]
+        return success_case(args) if check_condition(args) else failure_case(args)
 
     def is_recognized_function(self):
         return self.func_name in self.function_defs.keys()
@@ -203,7 +215,7 @@ class Function(object):
             'VectorMultiply' : Function.vector_operator_func('mul'),
             'VectorDivide' : Function.vector_operator_func('truediv'),
             'VectorFloorDivide' : Function.vector_operator_func('floordiv'),
-            'IfElse' : self.if_else_func()
+            'IfElse' : self.if_else_func
         }
 
     def evaluate(self, args=[]):
