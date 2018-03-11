@@ -14,7 +14,7 @@ import sys
 from function import Function
 
 # TODO(aditya): Handle None return values from ReportTraverser (in most cases
-# will need to cast to 0.0.
+# will need to cast to 0.0).
 # TODO(aditya): Handle divide by zero.
 # TODO(aditya): Handle float arithmetic correctly. Python will return
 # approximate floating point values for float arithmetic instead of the real,
