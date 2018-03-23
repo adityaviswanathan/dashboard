@@ -1,0 +1,49 @@
+#date-item {
+    border-radius: 10px;
+    border: 2px solid #D3D3D3;
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.column {
+    flex-basis: 100%;
+}
+
+@media screen and (min-width: 800px) {
+    .column {
+        flex: 1;
+    }
+}
+
+.button {
+    font-size: 10px;
+    padding: 2px 4px;
+    display: inline;
+    background: #D3D3D3;
+    border: none;
+    color: #333;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 4px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+}
+
+.button:hover {
+    background-position: 0 -48px;
+    background: #F3F3F3;
+}
+
+.button:active {
+    background-position: 0 top;
+    position: relative;
+    top: 1px;
+    padding: 2px 4px;
+}
+
+.button.green { background-color: #58aa00; }
+.button.orange { background-color: #ff9c00; }
+.button.gold { background-color: #dbb055; }

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Formula dashboard</title>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script type="text/javascript">
+        function appendToFormula(el) {
+            var newFormula = getFormula();
+            newFormula.push(el.innerHTML);
+            displayFormula(newFormula);
+        }
+        function displayFormula(newFormula) {
+            if (document.getElementsByClassName("formula-container").length == 0) return;
+            var container = document.getElementsByClassName("formula-container")[0];
+            // Remove all existing formula artifacts.
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+            // Fully swap out with new formula tokens.
+            for (var i = 0; i < newFormula.length; i++) {
+                var wrapper = document.createElement("div");
+                wrapper.classList.add("button");
+                wrapper.appendChild(document.createTextNode(newFormula[i]));
+                container.appendChild(wrapper);
+            }
+        }
+        function getFormula() {
+            if (document.getElementsByClassName("formula-container").length == 0) return;
+            var container = document.getElementsByClassName("formula-container")[0];
+            var formulas = [];
+            for (var i = 0; i < container.childNodes.length; i++) {
+                formulas.push(container.childNodes[i].innerHTML);
+            }
+            return formulas;
+        }
+        function deleteLastTokenFromFormula() {
+            var newFormula = getFormula(); 
+            if (newFormula.length == 0) return;
+            newFormula = newFormula.slice(0, newFormula.length-1);
+            displayFormula(newFormula);
+        }
+        function getIsListFormulaChecked() {
+            if (document.getElementsByClassName("list-formula").length == 0) return;
+            return document.getElementsByClassName("list-formula")[0].checked;
+        }
+        function executeFormula() {
+            var formulaString = getFormula().join('');
+            var req = new XMLHttpRequest();
+            req.open("POST", "/execute");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.onload = function() {
+                if (req.status === 200) {
+                    var data = JSON.parse(req.responseText);
+                    console.log(data);
+                }
+            };
+            req.send(JSON.stringify({
+                filename : "{{ filename }}",
+                formulaString : formulaString,
+                isList : getIsListFormulaChecked()
+            }));
+        }
+    </script>
+</head>
+<body>
+<div class="row">
+
+<div class="column">
+<h1>Upload a report</h1>
+<form method=post enctype=multipart/form-data>
+<p><input type=file name=file>
+<input type=submit value=Upload>
+</form>
+</div>
+
+</div>
+
+{% if dates|length > 0 and titles|length > 0 %}
+<div class="row">
+    <div class="column">
+        <h1>Formula builder</h1>
+        
+        <div class="formula-container"></div>
+    </div>
+</div>
+<div class="row">
+
+<!-- Report data  -->
+<div class="column">
+<h1>Report data</h1>
+<div class="row">
+<div class="column">
+    <div class="button" onclick="appendToFormula(this)">{{titles[0]}}(s)</div>
+</div>
+{% for date in dates[1:] %}
+<div class="column">
+    <div class="button" onclick="appendToFormula(this)">{{date}}</div>
+</div>
+{% endfor %}
+</div>
+
+{% for title in titles[1:] %}
+<div class="row">
+<div class="column">
+    <div class="button" onclick="appendToFormula(this)">{{title}}</div>
+</div>
+{% for row_item in rows[loop.index] %}
+<div class="column">
+    <div class="button" onclick="appendToFormula(this)">{{row_item}}</div>
+</div>
+{% endfor %}
+</div>
+{% endfor %}
+</div>
+
+<!-- Formula ingredients -->
+<div class="column">
+<h1>Formula ingredients</h1>
+<div class="row">
+<div class="column">
+    <div class="row">
+    
+    <div class="column">
+        <h5>Connectives</h5>
+        <div class="button orange" onclick="appendToFormula(this)">,</div>
+        <div class="button orange" onclick="appendToFormula(this)">(</div>
+        <div class="button orange" onclick="appendToFormula(this)">)</div>
+        <h5>Functions</h5>
+        {% for func in funcs %}
+        <div class="button green" onclick="appendToFormula(this)">{{func}}</div>
+        <br>
+        {% endfor %}
+    </div> 
+    
+    <div class="column">
+        <div class="button green" onclick="executeFormula()">
+            execute formula 
+        </div>
+        <br>
+        <input class="list-formula" style="display:inline-block;" type="checkbox">
+        <p style="display:inline-block;">is list formula</p>
+    </div>
+
+    <div class="column">
+        <div class="button gold" onclick="deleteLastTokenFromFormula()">
+            delete last token
+        </div>
+    </div>
+   
+    </div>
+    
+</div>
+</div>
+
+</div>
+{% endif %}
+
+</div>
+</body>
+</html>

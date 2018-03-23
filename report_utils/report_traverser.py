@@ -26,8 +26,17 @@ class Cell(object):
     def __repr__(self):
         if self is None:
             return ''
-        return '(' + str(self.val) + ', ' + self.title.__repr__() + ', ' + \
-            self.date.__repr__() + ')'
+        str_repr = '[ val=' + str(self.val) + \
+            ' | ' + 'title=' + str(self.title) + \
+            ' | ' + 'date=' + str(self.date) + ' ]'
+        return str_repr
+
+    def to_dict(self):
+        return {
+            'val' : self.val,
+            'title' : self.title,
+            'date' : self.date,
+        }
 
 class ReportTraverser(object):
     def __init__(

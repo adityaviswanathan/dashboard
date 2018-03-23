@@ -18,6 +18,34 @@ sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from report_utils import ReportTraverser, Cell
 
 class Function(object):
+    NAMES = set([
+        'Add',
+        'Subtract',
+        'Multiply',
+        'Divide',
+        'FloorDivide',
+        'GreaterThan',
+        'GreaterEqualThan',
+        'LessThan',
+        'LessEqualThan',
+        'Count',
+        'Average',
+        'Floor',
+        'Ceiling',
+        'Round',
+        'get_dates',
+        'get_titles',
+        'get_cell_by_index',
+        'get_cell_by_text',
+        'get_cells_by_date',
+        'get_cells_by_title',
+        'VectorAdd',
+        'VectorSubtract',
+        'VectorMultiply',
+        'VectorDivide',
+        'VectorFloorDivide',
+        'IfElse'
+    ])
     # Returns a list of cells.
     LIST_BINDINGS = set([
         'get_dates',
@@ -137,7 +165,7 @@ class Function(object):
         particular cell to numeric, we skip over it.
         '''
         def dispatch(arr, is_list):
-            traverser_index = int(arr[0].val) # 1st arg is report index.
+            traverser_index = int(float(arr[0].val)) # 1st arg is report index.
             traverser_args = arr[1:] if len(arr) > 1 else []
             # Execute the ReportTraverser binding.
             vals = lambda a : [i.val for i in a]
@@ -177,6 +205,7 @@ class Function(object):
         self.func_name = func_name
         self.traversers = traversers
         self.parent = parent
+
         self.function_defs = {
             'Add' : Function.operator_func('add'), # varargs.
             'Subtract' : Function.operator_func('sub'), # varargs.
