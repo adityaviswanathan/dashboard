@@ -26,9 +26,9 @@ class Cell(object):
     def __repr__(self):
         if self is None:
             return ''
-        str_repr = '[ val=' + str(self.val) + \
-            ' | ' + 'title=' + str(self.title) + \
-            ' | ' + 'date=' + str(self.date) + ' ]'
+        str_repr = '{ val=' + str(self.val) + \
+            ' | ' + 'title=' + str(self.title.val) + \
+            ' | ' + 'date=' + str(self.date.val) + ' }'
         return str_repr
 
     def to_dict(self):

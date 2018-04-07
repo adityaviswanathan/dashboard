@@ -190,7 +190,7 @@ class ParseTreeTraverser(unittest.TestCase):
             q1 = 'get_cells_by_date(0,OCT 17)'
             q2 = 'get_cells_by_date(0,NOV 17)'
             q = func + '(' + q0 + ', ' + q1  + ', ' + q2 + ')'
-            res = ParseTree(q, [self.traverser]).evaluate_tree()
+            res = ParseTree(q, [self.traverser]).evaluate_tree(is_list=True)
             self.assertEqual(round([i.val for i in res][fixed_index_check], 1),
                              out[0])
             self.assertEqual([i.title for i in res][fixed_index_check].val, out[1])

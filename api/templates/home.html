@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Formula dashboard</title>
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/frappe-charts@1.0.0/dist/frappe-charts.min.iife.js"></script>
     <script type="text/javascript">
         function appendToFormula(el) {
             var newFormula = getFormula();
@@ -37,7 +38,7 @@
             return formulas;
         }
         function deleteLastTokenFromFormula() {
-            var newFormula = getFormula(); 
+            var newFormula = getFormula();
             if (newFormula.length == 0) return;
             newFormula = newFormula.slice(0, newFormula.length-1);
             displayFormula(newFormula);
@@ -45,6 +46,98 @@
         function getIsListFormulaChecked() {
             if (document.getElementsByClassName("list-formula").length == 0) return;
             return document.getElementsByClassName("list-formula")[0].checked;
+        }
+        function displayAnswerChart(data, isList) {
+            var chart = new Chart("#chart-container", {
+                data: {
+                    labels: isList ? data["dates"] : [data["dates"]],
+                    datasets: [
+                        {
+                            label: "answer", type: "line",
+                            values: isList ? data["data"] : [data["data"]]
+                        }
+                    ]
+                },
+                title: getFormula().join(''),
+                type: "line",
+                height: 300,
+                colors: ["purple", "red", "green"]
+            }); 
+        }
+        function displayAnswerTable(data, isList) {
+            function payloadHasAllKeys(data) {
+                if (!isList) return; 
+                if (!data.hasOwnProperty("titles")) {
+                    throw "Payload does not have expected key 'titles'.";
+                }
+                if (!data.hasOwnProperty("dates")) {
+                    throw "Payload does not have expected key 'dates'.";
+                }
+                if (!data.hasOwnProperty("data")) {
+                    throw "Payload does not have expected key 'data'.";
+                }
+            }
+            try {
+                payloadHasAllKeys(data)
+            }
+            catch (err) {
+                console.log(err.message);
+            }
+            if (document.getElementsByClassName("answer-container").length == 0) return;
+            var container = document.getElementsByClassName("answer-container")[0];
+            // Remove all existing answer artifacts.
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+            // Create topmost row.
+            var topRow = document.createElement("div");
+            topRow.classList.add("row");
+            var headers = [];
+            // Add column headers to topmost row.
+            Object.keys(data).forEach(function(headerName) {
+                var column = document.createElement("div");
+                column.classList.add("column");
+                var header = document.createElement("div");
+                header.classList.add("button");
+                header.appendChild(document.createTextNode(headerName));
+                column.appendChild(header);
+                topRow.appendChild(column);
+                headers.push(headerName);
+            });
+            container.appendChild(topRow);
+            if (isList) {
+                // Add entries to row in header order.
+                for (var i = 0; i < data["data"].length; i++) {
+                    var row = document.createElement("div");
+                    row.classList.add("row");
+                    for (var j = 0; j < headers.length; j++) {
+                        var column = document.createElement("div");
+                        column.classList.add("column");
+                        var entry = data[headers[j]][i];
+                        var item = document.createElement("div");
+                        item.classList.add("button");
+                        item.appendChild(document.createTextNode(entry));
+                        column.appendChild(item);
+                        row.appendChild(column);
+                    }
+                    container.appendChild(row);
+                }
+                return;
+            }
+            // Single entry for singleton response.
+            var row = document.createElement("div");
+            row.classList.add("row");
+            for (var j = 0; j < headers.length; j++) {
+                var column = document.createElement("div");
+                column.classList.add("column");
+                var entry = data[headers[j]];
+                var item = document.createElement("div");
+                item.classList.add("button");
+                item.appendChild(document.createTextNode(entry));
+                column.appendChild(item);
+                row.appendChild(column);
+            }
+            container.appendChild(row);
         }
         function executeFormula() {
             var formulaString = getFormula().join('');
@@ -55,6 +148,8 @@
                 if (req.status === 200) {
                     var data = JSON.parse(req.responseText);
                     console.log(data);
+                    displayAnswerTable(data, getIsListFormulaChecked());
+                    displayAnswerChart(data, getIsListFormulaChecked());
                 }
             };
             req.send(JSON.stringify({
@@ -67,7 +162,6 @@
 </head>
 <body>
 <div class="row">
-
 <div class="column">
 <h1>Upload a report</h1>
 <form method=post enctype=multipart/form-data>
@@ -75,15 +169,24 @@
 <input type=submit value=Upload>
 </form>
 </div>
-
 </div>
 
 {% if dates|length > 0 and titles|length > 0 %}
 <div class="row">
+<div class="column">
+    <h1>Chart</h1>
+    <div id="chart-container"></div> 
+</div>
+</div>
+
+<div class="row">
     <div class="column">
         <h1>Formula builder</h1>
-        
         <div class="formula-container"></div>
+    </div>
+    <div class="column">
+        <h1>Answer</h1>
+        <div class="answer-container"></div>
     </div>
 </div>
 <div class="row">

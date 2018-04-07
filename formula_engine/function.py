@@ -136,12 +136,12 @@ class Function(object):
                 flattened_vec.append(Cell(
                     reduce(getattr(operator, n),
                            [float(vec[i].val) for vec in sparse_veclist]),
-                    sparse_veclist[0][0].title,
-                    sparse_veclist[0][0].date))
+                    sparse_veclist[0][i].title,
+                    sparse_veclist[0][i].date))
             return flattened_vec
 
         # Args list @a is a list of vectors of cells.
-        return lambda a : [flatten(sparse(a))]
+        return lambda a : flatten(sparse(a))
 
     @staticmethod
     def constant_func(val):

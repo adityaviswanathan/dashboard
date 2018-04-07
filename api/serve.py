@@ -46,7 +46,9 @@ def index():
             f.save(filepath)
             print 'Processed file "' + filename + '".'
             print 'Making axis decision...'
-            data_file = to_csv(filepath, app.config['UPLOAD_FOLDER'])
+            print filepath.endswith('.csv')
+            data_file = to_csv(filepath, app.config['UPLOAD_FOLDER']) if \
+                not filepath.endswith('.csv') else filepath
             axis_decision = AxisDecision(data_file)
             axis_decision.decide()
             print 'Decided that ' + str(axis_decision.date_axis) + \
@@ -101,24 +103,28 @@ def execute_formula():
     ptree = ParseTree(payload['formulaString'], [traverser])
     if 'isList' in payload.keys() and payload['isList']:
         list_parse_output = ptree.evaluate_tree(is_list=True)
+        # HACK below to fix a bug where Vector functions are returning doubly
+        # wrapped lists. Remove asap.
+        # if 'Vector' in str(payload['formulaString']):
+        #     list_parse_output = list_parse_output[0]
+        print list_parse_output
         list_data = {
             'data' : [i.val for i in list_parse_output],
-            'titles' : [i.title.val for i in list_parse_output],
-            'dates' : [i.date.val for i in list_parse_output]
+            'titles' : [i.title.val if i.title is not None else i.title for i in list_parse_output],
+            'dates' : [i.date.val if i.date is not None else i.date for i in list_parse_output]
         }
         print 'Sending the following list data response to client: ' +  \
             str(list_data)
         return jsonify(list_data)
     parse_output = ptree.evaluate_tree()
     singleton_data = {
-        'data' : [i.val for i in parse_output],
-        'titles' : [i.title for i in parse_output],
-        'dates' : [i.date for i in parse_output]
+        'data' : parse_output.val,
+        'titles' : parse_output.title.val,
+        'dates' : parse_output.date.val
     }
     print 'Sending the following singleton data response to client: ' +  \
         str(singleton_data)
     return jsonify(singleton_data)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
