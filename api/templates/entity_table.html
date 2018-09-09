@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Data table for {{ entityName|lower }}</title>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script type="text/javascript">
+        function updateEntity(el) {
+            console.log("Updating entity...");
+        }
+        function addEntry(el) {
+            console.log("Adding entity...");
+            // Kind of hacky way to get all of the inputs for a new entity entry.
+            var rowContainer = el.parentElement.parentElement.children;
+            payload = {}
+            for (var i = 0; i < rowContainer.length; i++) {
+                var columnElement = rowContainer[i];
+                var inputElements = columnElement.children;
+                for (var j = 0; j < inputElements.length; j++) {
+                    var inputElement = inputElements[j];
+                    if (inputElement.classList.contains("tableitem")) {
+                        var key = "";
+                        for (var k = 0; k < inputElement.classList.length; k++) {
+                          if (inputElement.classList[k] == "tableitem") continue;
+                          key = inputElement.classList[k];
+                          break;
+                        }
+                        payload[key] = inputElement.value;
+                        console.log("Added value " + payload[key] + " for key " + key);
+                    }
+                }
+            }
+            console.log("Attempting to add an entity of type {{ entityName }} with payload:");
+            console.log(payload);
+            var req = new XMLHttpRequest();
+            req.open("POST", "/{{ entityName }}");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.onload = function() {
+                if (req.status === 200) {
+                    console.log(req.responseText);
+                    console.log("Successfully added entry, reloading page...");
+                    location.reload();
+                }
+            };
+            req.send(JSON.stringify(payload));
+        }
+    </script>
+</head>
+<body>
+<div class="row">
+<div class="column">
+    <h2>{{ entityName|upper }}</h2>
+</div>
+</div>
+<!-- DYNAMIC TABLE -->
+<div id="table-container">
+{% if entities|length > 0 %}
+<!-- NEW ENTRY FORM -->
+<div class="row">
+{% for entity in entities[:1] %}
+{% for key, _ in entity.iteritems() %}
+<div class="column">
+    {% if key != "id" and key != "updated_on" and key != "created_on" %}
+    <input class="tableitem {{ key }}" type="text">
+    {% endif %}
+</div>
+{% endfor %}
+{% endfor %}
+<!-- EXTRA PADDING IN COLUMN HEADER ROW -->
+<div class="column">
+    <div class="button" onclick="addEntry(this)">add entry</div>
+</div>
+</div>
+<!-- END NEW ENTRY FORM -->
+<hr>
+<!-- COLUMN HEADERS -->
+<div class="row">
+{% for entity in entities[:1] %}
+{% for key, _ in entity.iteritems() %}
+<div class="column">
+    <h4>{{ key }}</h4>
+</div>
+{% endfor %}
+{% endfor %}
+<!-- EXTRA PADDING IN COLUMN HEADER ROW -->
+<div class="column">
+</div>
+</div>
+<!-- END COLUMN HEADERS -->
+<!-- COLUMN DATA -->
+{% for entity in entities %}
+<div class="row">
+{% for key, value in entity.iteritems() %}
+<div class="column">
+    {% if key == "id" %}
+    <p>{{ value }}</p>
+    {% else %}
+    <input class="tableitem" type="text" value="{{ value }}">
+    {% endif %}
+</div>
+{% endfor %}
+<div class="column">
+    <div class="button" onclick="updateEntity(this)">update entry</div>
+</div>
+</div>
+{% endfor %}
+{% endif %}
+<!-- END COLUMN DATA -->
+</div>
+</body>
+</html>

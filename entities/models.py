@@ -67,6 +67,10 @@ class Property(Base):
         return prop
 
     @staticmethod
+    def query_all():
+        return Property.query.all()
+
+    @staticmethod
     def query_by_owner_id(owner_id):
         if owner_id is None:
             return None
@@ -85,6 +89,10 @@ class Manager(Base):
         manager.property_id = property_id
         manager.save()
         return manager
+
+    @staticmethod
+    def query_all():
+        return Manager.query.all()
 
     @staticmethod
     def query_by_property_id(property_id):
@@ -107,6 +115,10 @@ class Tenant(Base):
         return tenant
 
     @staticmethod
+    def query_all():
+        return Tenant.query.all()
+
+    @staticmethod
     def query_by_property_id(property_id):
         if property_id is None:
             return None
@@ -122,6 +134,10 @@ class Ticket(Base):
         ticket.tenant_id = tenant_id
         ticket.save()
         return ticket
+
+    @staticmethod
+    def query_all():
+        return Ticket.query.all()
 
     @staticmethod
     def query_by_tenant_id(tenant_id):
@@ -142,6 +158,10 @@ class Unit(Base):
         return unit
 
     @staticmethod
+    def query_all():
+        return Unit.query.all()
+
+    @staticmethod
     def query_by_property_id(property_id):
         if property_id is None:
             return None
@@ -159,6 +179,10 @@ class Contract(Base):
         contract.tenant_id = tenant_id
         contract.save()
         return contract
+
+    @staticmethod
+    def query_all():
+        return Contract.query.all()
 
     @staticmethod
     def query_by_unit_id(unit_id):

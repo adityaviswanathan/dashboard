@@ -7,9 +7,14 @@
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
 }
 .column {
     flex-basis: 100%;
+}
+
+.menuitem {
+    text-align: center;
 }
 
 @media screen and (min-width: 800px) {

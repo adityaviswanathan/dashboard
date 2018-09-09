@@ -24,8 +24,7 @@ class CanQueryAllEntities(unittest.TestCase):
         # Create database.
         # TODO(aditya): Be more careful here with dropping/initializing
         # database. Obviously we should never do this with prod resources, but
-        # we might also want to separate dev resources from test resources as
-        # well.
+        # we might also want to separate dev resources from test resources.
         start_engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI_START'])
         with start_engine.begin() as start_cxn:
             start_cxn.execute('COMMIT')
