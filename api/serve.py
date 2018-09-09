@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 '''
 Serves the HTTP interface to FormulaEngine via a REST API.
 TODO(aditya): Define HTTP interface to FormulaEngine via a REST API.
@@ -11,6 +12,7 @@ from flask import Flask, flash, jsonify, redirect, render_template, request
 import os
 import sys
 from werkzeug.utils import secure_filename
+from app import app
 # Append parent dir to $PYTHONPATH to import ReportTraverser, whose public
 # methods have bindings into Function.
 my_path = os.path.dirname(os.path.abspath(__file__))
@@ -18,11 +20,7 @@ sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from report_utils import AxisDecision, ReportTraverser, to_csv
 from formula_engine import ParseTree, Function
 
-UPLOAD_FOLDER = 'in'
 ALLOWED_EXTENSIONS = set(['xlsx', 'csv', 'txt'])
-
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def allowed_file(filename):
     return '.' in filename and \
