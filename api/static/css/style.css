@@ -17,6 +17,10 @@
     text-align: center;
 }
 
+.tablerowhide {
+    display: none;
+}
+
 @media screen and (min-width: 800px) {
     .column {
         flex: 1;

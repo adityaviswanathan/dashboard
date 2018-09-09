@@ -7,14 +7,15 @@
     <title>Data table for {{ entityName|lower }}</title>
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <script type="text/javascript">
-        function updateEntity(el) {
-            console.log("Updating entity...");
+        var FLAG_DEBUG = true;
+        function debug(msg) {
+            if (FLAG_DEBUG) console.log(msg);
         }
-        function addEntry(el) {
-            console.log("Adding entity...");
-            // Kind of hacky way to get all of the inputs for a new entity entry.
-            var rowContainer = el.parentElement.parentElement.children;
-            payload = {}
+        function updateEntity(el) {
+            debug("Updating entity...");
+        }
+        function getTableItemValues(rowContainer) {
+            var payload = {}
             for (var i = 0; i < rowContainer.length; i++) {
                 var columnElement = rowContainer[i];
                 var inputElements = columnElement.children;
@@ -27,24 +28,61 @@
                           key = inputElement.classList[k];
                           break;
                         }
-                        payload[key] = inputElement.value;
-                        console.log("Added value " + payload[key] + " for key " + key);
+                        if (inputElement.tagName.toLowerCase() === "input") payload[key] = inputElement.value;
+                        if (inputElement.tagName.toLowerCase() === "p") payload[key] = inputElement.innerHTML;
+                        debug("Added value " + payload[key] + " for key " + key);
                     }
                 }
             }
-            console.log("Attempting to add an entity of type {{ entityName }} with payload:");
-            console.log(payload);
+            return payload;
+        }
+        function addEntry(el) {
+            debug("Adding entity...");
+            // Kind of hacky way to get all of the inputs for a new entity entry.
+            var rowContainer = el.parentElement.parentElement.children;
+            debug(rowContainer);
+            var payload = getTableItemValues(rowContainer);
+            debug("Attempting to add an entity of type {{ entityName }} with payload:");
+            debug(payload);
             var req = new XMLHttpRequest();
             req.open("POST", "/{{ entityName }}");
             req.setRequestHeader("Content-Type", "application/json");
             req.onload = function() {
                 if (req.status === 200) {
-                    console.log(req.responseText);
-                    console.log("Successfully added entry, reloading page...");
+                    debug(req.responseText);
+                    debug("Successfully added entry, reloading page...");
                     location.reload();
                 }
             };
             req.send(JSON.stringify(payload));
+        }
+        function filterEntries(el) {
+            debug("Filtering entities...");
+            // Kind of hacky way to get all of the inputs for a new entity entry.
+            var rowContainer = el.parentElement.parentElement.children;
+            var payload = getTableItemValues(rowContainer);
+            var tableRows = [];
+            var tableContainer = document.getElementById("table-container");
+            for (var i = 0; i < tableContainer.children.length; i++) {
+                var tableRowColumns = getTableItemValues(tableContainer.children[i].children);
+                debug(tableRowColumns);
+                var filterTableRow = false;
+                for (var column in tableRowColumns) {
+                    if (filterTableRow) break;
+                    if (tableRowColumns.hasOwnProperty(column)) {
+                        debug("Looking for needle '" + payload[column] + "' in haystack '" + tableRowColumns[column] + "'");
+                        if (!tableRowColumns[column].includes(payload[column])) {
+                            debug("Filtering out row " + JSON.stringify(tableRowColumns));
+                            tableContainer.children[i].className += " tablerowhide";
+                            filterTableRow = true;
+                        }
+                    }
+                }
+                if (!filterTableRow && tableContainer.children[i].classList.contains("tablerowhide")) {
+                    debug("Unfiltering out row " + JSON.stringify(tableRowColumns));
+                    tableContainer.children[i].classList.remove("tablerowhide");
+                }
+            }
         }
     </script>
 </head>
@@ -54,8 +92,6 @@
     <h2>{{ entityName|upper }}</h2>
 </div>
 </div>
-<!-- DYNAMIC TABLE -->
-<div id="table-container">
 {% if entities|length > 0 %}
 <!-- NEW ENTRY FORM -->
 <div class="row">
@@ -68,13 +104,26 @@
 </div>
 {% endfor %}
 {% endfor %}
-<!-- EXTRA PADDING IN COLUMN HEADER ROW -->
 <div class="column">
     <div class="button" onclick="addEntry(this)">add entry</div>
 </div>
 </div>
 <!-- END NEW ENTRY FORM -->
 <hr>
+<!-- COLUMN FILTER -->
+<div class="row">
+{% for entity in entities[:1] %}
+{% for key, _ in entity.iteritems() %}
+<div class="column">
+    <input class="tableitem {{ key }}" type="text" placeholder="filter by {{ key }}" onkeyup="filterEntries(this)">
+</div>
+{% endfor %}
+<!-- EXTRA PADDING IN COLUMN FILTER ROW -->
+<div class="column">
+</div>
+</div>
+{% endfor %}
+<!-- END COLUMN FILTER -->
 <!-- COLUMN HEADERS -->
 <div class="row">
 {% for entity in entities[:1] %}
@@ -90,14 +139,15 @@
 </div>
 <!-- END COLUMN HEADERS -->
 <!-- COLUMN DATA -->
+<div id="table-container">
 {% for entity in entities %}
 <div class="row">
 {% for key, value in entity.iteritems() %}
 <div class="column">
-    {% if key == "id" %}
-    <p>{{ value }}</p>
+    {% if key != "id" and key != "updated_on" and key != "created_on" %}
+    <input class="tableitem {{ key }}" type="text" value="{{ value }}">
     {% else %}
-    <input class="tableitem" type="text" value="{{ value }}">
+    <p class="tableitem {{ key }}">{{ value }}</p>
     {% endif %}
 </div>
 {% endfor %}
@@ -106,8 +156,8 @@
 </div>
 </div>
 {% endfor %}
+</div>
 {% endif %}
 <!-- END COLUMN DATA -->
-</div>
 </body>
 </html>
