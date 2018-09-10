@@ -25,6 +25,26 @@ class Base(db.Model):
     created_on = db.Column(db.DateTime, default=db.func.now())
     updated_on = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
 
+    # Copies as much data from data_dict as possible besides Base model fields
+    # id, created_on, updated_on.
+    def copy_from_dict(self, data_dict):
+        for key, value in data_dict.iteritems():
+            # Find matching column in model schema (if exists).
+            # This is a bit HACKy because:
+            # - it introduces an otherwise unnecessary additional loop over a
+            #   model's columns
+            # - there should be a functional way to map client payloads to an
+            #   DB object.
+            # TODO(aditya): Py dict -> object mapper class.
+            for col in self.__table__.columns:
+                # Skip copying Base model fields.
+                if col.name in ['id', 'created_on', 'updated_on']:
+                    continue
+                # Copy legal field.
+                if col.name == key:
+                    setattr(self, key, value)
+                    break
+
     def save(self):
         self.updated_on = datetime.datetime.utcnow()
         db.session.add(self)
@@ -48,6 +68,12 @@ class Owner(Base):
         return owner
 
     @staticmethod
+    def query_by_id(in_id):
+        if in_id is None:
+            return None
+        return Owner.query.filter_by(id=in_id).first()
+
+    @staticmethod
     def query_all():
         return Owner.query.all()
 
@@ -65,6 +91,12 @@ class Property(Base):
         prop.owner_id = owner_id
         prop.save()
         return prop
+
+    @staticmethod
+    def query_by_id(in_id):
+        if in_id is None:
+            return None
+        return Property.query.filter_by(id=in_id).first()
 
     @staticmethod
     def query_all():
@@ -91,6 +123,12 @@ class Manager(Base):
         return manager
 
     @staticmethod
+    def query_by_id(in_id):
+        if in_id is None:
+            return None
+        return Manager.query.filter_by(id=in_id).first()
+
+    @staticmethod
     def query_all():
         return Manager.query.all()
 
@@ -115,6 +153,12 @@ class Tenant(Base):
         return tenant
 
     @staticmethod
+    def query_by_id(in_id):
+        if in_id is None:
+            return None
+        return Tenant.query.filter_by(id=in_id).first()
+
+    @staticmethod
     def query_all():
         return Tenant.query.all()
 
@@ -134,6 +178,12 @@ class Ticket(Base):
         ticket.tenant_id = tenant_id
         ticket.save()
         return ticket
+
+    @staticmethod
+    def query_by_id(in_id):
+        if in_id is None:
+            return None
+        return Ticket.query.filter_by(id=in_id).first()
 
     @staticmethod
     def query_all():
@@ -158,6 +208,12 @@ class Unit(Base):
         return unit
 
     @staticmethod
+    def query_by_id(in_id):
+        if in_id is None:
+            return None
+        return Unit.query.filter_by(id=in_id).first()
+
+    @staticmethod
     def query_all():
         return Unit.query.all()
 
@@ -179,6 +235,12 @@ class Contract(Base):
         contract.tenant_id = tenant_id
         contract.save()
         return contract
+
+    @staticmethod
+    def query_by_id(in_id):
+        if in_id is None:
+            return None
+        return Contract.query.filter_by(id=in_id).first()
 
     @staticmethod
     def query_all():

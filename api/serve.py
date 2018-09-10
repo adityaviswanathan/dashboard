@@ -81,7 +81,8 @@ def index():
     # GET request default case.
     return render_template('home.html')
 
-
+# Entity API (supports GET/POST/PUT semantics).
+# TODO(aditya): Move as much of this to a separate class as possible.
 @app.route('/<entity_name>', methods=['GET'])
 def get_entity(entity_name):
     print 'Starting to load data for entity "%s"' % entity_name
@@ -178,6 +179,73 @@ def add_entity(entity_name):
         if 'tenant_id' not in payload:
             raise Exception('Input payload does not have required field tenant_id')
         entry = row2dict(Contract.create(payload['unit_id'], payload['tenant_id']))
+        Db.session.commit()
+    return jsonify(entry)
+
+@app.route('/<entity_name>', methods=['PUT'])
+def update_entity(entity_name):
+    payload = request.get_json()
+    print 'Updating entry for entity "%s" with id %s' % (entity_name, payload['id'])
+    legal_entities = ['owners', 'properties', 'managers', 'tenants', 'tickets', 'units', 'contracts']
+    row2dict = lambda r: { c.name: str(getattr(r, c.name)) for c in r.__table__.columns }
+    entry = {}
+    if entity_name not in legal_entities:
+        print 'Cannot handle data transport for %s' % entity_name
+    if entity_name == 'owners':
+        print 'Updating owner with data: %s' % str(payload)
+        if 'id' not in payload:
+            raise Exception('Cannot query for object because field id is missing from input payload')
+        owner = Owner.query_by_id(payload['id'])
+        owner.copy_from_dict(payload)
+        entry = row2dict(owner)
+        Db.session.commit()
+    if entity_name == 'properties':
+        print 'Updating property with data: %s' % str(payload)
+        if 'id' not in payload:
+            raise Exception('Cannot query for object because field id is missing from input payload')
+        prop = Property.query_by_id(payload['id'])
+        prop.copy_from_dict(payload)
+        entry = row2dict(prop)
+        Db.session.commit()
+    if entity_name == 'managers':
+        print 'Updating manager with data: %s' % str(payload)
+        if 'id' not in payload:
+            raise Exception('Cannot query for object because field id is missing from input payload')
+        manager = Manager.query_by_id(payload['id'])
+        manager.copy_from_dict(payload)
+        entry = row2dict(manager)
+        Db.session.commit()
+    if entity_name == 'tenants':
+        print 'Updating tenant with data: %s' % str(payload)
+        if 'id' not in payload:
+            raise Exception('Cannot query for object because field id is missing from input payload')
+        tenant = Tenant.query_by_id(payload['id'])
+        tenant.copy_from_dict(payload)
+        tenant = row2dict(tenant)
+        Db.session.commit()
+    if entity_name == 'tickets':
+        print 'Updating tickets with data: %s' % str(payload)
+        if 'id' not in payload:
+            raise Exception('Cannot query for object because field id is missing from input payload')
+        ticket = Ticket.query_by_id(payload['id'])
+        ticket.copy_from_dict(payload)
+        ticket = row2dict(ticket)
+        Db.session.commit()
+    if entity_name == 'units':
+        print 'Updating units with data: %s' % str(payload)
+        if 'id' not in payload:
+            raise Exception('Cannot query for object because field id is missing from input payload')
+        unit = Unit.query_by_id(payload['id'])
+        unit.copy_from_dict(payload)
+        unit = row2dict(unit)
+        Db.session.commit()
+    if entity_name == 'contracts':
+        print 'Updating units with data: %s' % str(payload)
+        if 'id' not in payload:
+            raise Exception('Cannot query for object because field id is missing from input payload')
+        contract = Contract.query_by_id(payload['id'])
+        contract.copy_from_dict(payload)
+        entry = row2dict(contract)
         Db.session.commit()
     return jsonify(entry)
 

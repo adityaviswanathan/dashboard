@@ -13,6 +13,22 @@
         }
         function updateEntity(el) {
             debug("Updating entity...");
+            var rowContainer = el.parentElement.parentElement.children;
+            debug(rowContainer);
+            var payload = getTableItemValues(rowContainer);
+            debug("Attempting to update an entity of type {{ entityName }} with payload:");
+            debug(payload);
+            var req = new XMLHttpRequest();
+            req.open("PUT", "/{{ entityName }}");
+            req.setRequestHeader("Content-Type", "application/json");
+            req.onload = function() {
+                if (req.status === 200) {
+                    debug(req.responseText);
+                    debug("Successfully added entry, reloading page...");
+                    location.reload();
+                }
+            };
+            req.send(JSON.stringify(payload));
         }
         function getTableItemValues(rowContainer) {
             var payload = {}

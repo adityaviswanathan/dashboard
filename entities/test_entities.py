@@ -150,5 +150,7 @@ class CanQueryAllEntities(unittest.TestCase):
         self.assertEqual(len(self.db_map['units']), 0)
         self.assertEqual(len(self.db_map['contracts']), 0)
 
+# TODO(aditya): Add test for PUT ops via copy_from_dict().
+
 if __name__ == '__main__':
     unittest.main()
