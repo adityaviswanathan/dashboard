@@ -7,8 +7,11 @@ on all entity types.
 __author__ = 'Aditya Viswanathan'
 __email__ = 'aditya@adityaviswanathan.com'
 
+import copy
 import os
+import string
 import sys
+import random
 import unittest
 from sqlalchemy import create_engine
 from db import db
@@ -18,139 +21,257 @@ my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from api import app
 
+TEST_STR = 'dummy'
+def lROW2DICT(r): return {c.name: str(getattr(r, c.name))
+                          for c in r.__table__.columns}
+
+# Inserts entries according to the supplied arguments.
+# NOTE: num_* args are not absolute counts of the number of each entity.
+# Rather, they are the count of each entity with respect to a single
+# parent. For example, if num_owners=2 and num_properties=2, there would
+# be a total of 2 owners and 4 properties in the database because each
+# owner has many properties.
+def make_entities(num_owners=1, num_properties=1, num_managers=1,
+                  num_units=1, num_tenants=1, num_contracts=1,
+                  num_tickets=1):
+    if num_contracts > num_units:
+        raise Exception('Cannot make %d contracts for %d units' %
+                        (num_contracts, num_units))
+    if num_contracts > num_tenants:
+        raise Exception('Cannot make %d contracts for %d tenants' %
+                        (num_contracts, num_tenants))
+    db_map = {
+        'owners': [],
+        'properties': [],
+        'managers': [],
+        'tenants': [],
+        'tickets': [],
+        'units': [],
+        'contracts': []
+    }
+    for i in range(num_owners):
+        owner = Owner.create(TEST_STR)
+        db.session.commit()
+        db_map['owners'].append(lROW2DICT(owner))
+        for i in range(num_properties):
+            prop = Property.create(TEST_STR, owner.id)
+            db.session.commit()
+            db_map['properties'].append(lROW2DICT(prop))
+            for i in range(num_managers):
+                manager = Manager.create(TEST_STR, prop.id)
+                db.session.commit()
+                db_map['managers'].append(lROW2DICT(manager))
+            unit_ids = []
+            tenant_ids = []
+            for i in range(num_units):
+                unit = Unit.create(prop.id)
+                db.session.commit()
+                db_map['units'].append(lROW2DICT(unit))
+                unit_ids.append(unit.id)
+            for i in range(num_tenants):
+                tenant = Tenant.create(TEST_STR, prop.id)
+                db.session.commit()
+                db_map['tenants'].append(lROW2DICT(tenant))
+                tenant_ids.append(tenant.id)
+                for i in range(num_tickets):
+                    ticket = Ticket.create(tenant.id)
+                    db.session.commit()
+                    db_map['tickets'].append(lROW2DICT(ticket))
+            for i in range(num_contracts):
+                contract = Contract.create(unit_ids[i], tenant_ids[i])
+                db.session.commit()
+                db_map['contracts'].append(lROW2DICT(contract))
+    return db_map
+
+
+def makeTestDatabase(num_owners=1, num_properties=1, num_managers=1,
+                     num_units=1, num_tenants=1, num_contracts=1,
+                     num_tickets=1):
+    # Create database.
+    # TODO(aditya): Be more careful here with dropping/initializing
+    # database. Obviously we should never do this with prod resources, but
+    # we might also want to separate dev resources from test resources.
+    # start_engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI_START'])
+    # with start_engine.begin() as start_cxn:
+    #     start_cxn.execute('COMMIT')
+    #     start_cxn.execute('DROP DATABASE IF EXISTS %s' %
+    #                       app.config['DATABASE_NAME'])
+    #     start_cxn.execute('COMMIT')
+    #     start_cxn.execute('CREATE DATABASE %s' % app.config['DATABASE_NAME'])
+    # start_engine.dispose()
+    # Apply schema to new database.
+    db.drop_all()
+    db.create_all()
+    db.session.commit()
+    # Insert dummy records. We'll maintain a separate map of all records
+    # from which we can ensure queries can reach all.
+    return make_entities(num_owners=num_owners, num_properties=num_properties, num_managers=num_managers,
+                         num_units=num_units, num_tenants=num_tenants, num_contracts=num_contracts,
+                         num_tickets=num_tickets)
+
+def destroyTestDatabase():
+    db.session.commit()
+    db.drop_all()
+
+# Walks schema hierarchy from top-most query, returning dictionary repr of db.
+def databaseReachAll():
+    owners = Owner.query_all()
+    output_obj_dict = {'owners': [],
+                       'properties': [],
+                       'managers': [],
+                       'tenants': [],
+                       'tickets': [],
+                       'units': [],
+                       'contracts': []}
+    for owner in owners:
+        output_obj_dict['owners'].append(lROW2DICT(owner))
+        props = Property.query_by_owner_id(owner.id)
+        for prop in props:
+            output_obj_dict['properties'].append(lROW2DICT(prop))
+            managers = Manager.query_by_property_id(prop.id)
+            for manager in managers:
+                output_obj_dict['managers'].append(lROW2DICT(manager))
+            tenants = Tenant.query_by_property_id(prop.id)
+            for tenant in tenants:
+                output_obj_dict['tenants'].append(lROW2DICT(tenant))
+                tickets = Ticket.query_by_tenant_id(tenant.id)
+                for ticket in tickets:
+                    output_obj_dict['tickets'].append(lROW2DICT(ticket))
+            units = Unit.query_by_property_id(prop.id)
+            for unit in units:
+                output_obj_dict['units'].append(lROW2DICT(unit))
+                contracts = Contract.query_by_unit_id(unit.id)
+                for contract in contracts:
+                    output_obj_dict['contracts'].append(lROW2DICT(contract))
+    return output_obj_dict
+
+
+
 class CanQueryAllEntities(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        # Create database.
-        # TODO(aditya): Be more careful here with dropping/initializing
-        # database. Obviously we should never do this with prod resources, but
-        # we might also want to separate dev resources from test resources.
-        start_engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI_START'])
-        with start_engine.begin() as start_cxn:
-            start_cxn.execute('COMMIT')
-            start_cxn.execute('DROP DATABASE IF EXISTS %s' % app.config['DATABASE_NAME'])
-            start_cxn.execute('COMMIT')
-            start_cxn.execute('CREATE DATABASE %s' % app.config['DATABASE_NAME'])
-        start_engine.dispose()
-        # Apply schema to new database.
-        db.create_all()
-        # Insert dummy records. We'll maintain a separate map of all records
-        # from which we can ensure queries can reach all.
-        dummystr = 'dummy'
-        self.db_map = {
-            'owners' : [],
-            'properties' : [],
-            'managers' : [],
-            'tenants' : [],
-            'tickets' : [],
-            'units' : [],
-            'contracts' : []
-        }
-        row2dict = lambda r: { c.name: str(getattr(r, c.name)) for c in r.__table__.columns }
-        def make_owner(email):
-            owner = Owner.create(email)
-            db.session.commit()
-            self.db_map['owners'].append(row2dict(owner))
-            return owner
-        def make_property(address, owner_id):
-            prop = Property.create(address, owner_id)
-            db.session.commit()
-            self.db_map['properties'].append(row2dict(prop))
-            return prop
-        def make_manager(email, property_id):
-            manager = Manager.create(email, property_id)
-            db.session.commit()
-            self.db_map['managers'].append(row2dict(manager))
-            return manager
-        def make_tenant(email, property_id):
-            tenant = Tenant.create(email, property_id)
-            db.session.commit()
-            self.db_map['tenants'].append(row2dict(tenant))
-            return tenant
-        def make_ticket(tenant_id):
-            ticket = Ticket.create(tenant_id)
-            db.session.commit()
-            self.db_map['tickets'].append(row2dict(ticket))
-            return ticket
-        def make_unit(property_id):
-            unit = Unit.create(property_id)
-            db.session.commit()
-            self.db_map['units'].append(row2dict(unit))
-            return unit
-        def make_contract(unit_id, tenant_id):
-            contract = Contract.create(unit_id, tenant_id)
-            db.session.commit()
-            self.db_map['contracts'].append(row2dict(contract))
-            return contract
-        # Inserts entries according to the supplied arguments.
-        # NOTE: num_* args are not absolute counts of the number of each entity.
-        # Rather, they are the count of each entity with respect to a single
-        # parent. For example, if num_owners=2 and num_properties=2, there would
-        # be a total of 2 owners and 4 properties in the database because each
-        # owner has many properties.
-        def make_entities(num_owners=1, num_properties=1, num_managers=1,
-                          num_units=1, num_tenants=1, num_contracts=1,
-                          num_tickets=1):
-            if num_contracts > num_units:
-                raise Exception('Cannot make %d contracts for %d units' % (num_contracts, num_units))
-            if num_contracts > num_tenants:
-                raise Exception('Cannot make %d contracts for %d tenants' % (num_contracts, num_tenants))
-            for i in range(num_owners):
-                owner = make_owner(dummystr)
-                for i in range(num_properties):
-                    prop = make_property(dummystr, owner.id)
-                    for i in range(num_managers):
-                        manager = make_manager(dummystr, prop.id)
-                    unit_ids = []
-                    tenant_ids = []
-                    for i in range(num_units):
-                        unit = make_unit(prop.id)
-                        unit_ids.append(unit.id)
-                    for i in range(num_tenants):
-                        tenant = make_tenant(dummystr, prop.id)
-                        tenant_ids.append(tenant.id)
-                        for i in range(num_tickets):
-                            ticket = make_ticket(tenant.id)
-                    for i in range(num_contracts):
-                        contract = make_contract(unit_ids[i], tenant_ids[i])
-        make_entities(num_owners=2, num_properties=3, num_managers=5,
-                      num_units=5, num_tenants=5, num_contracts=5,
-                      num_tickets=5)
+        self.db = makeTestDatabase(num_owners=2, num_properties=2, num_managers=3,
+                                   num_units=9, num_tenants=5, num_contracts=5,
+                                   num_tickets=3)
+
+    @classmethod
+    def tearDownClass(self):
+        destroyTestDatabase()
 
     def test_can_query_all(self):
+        # Use query API to reach all inserted entities and prune from @self.db.
+        reach_all_db = databaseReachAll()
+        # Assert that each record for each entity type has been reached via query API.
+        self.assertEqual(len(self.db['owners']), len(reach_all_db['owners']))
+        self.assertListEqual(self.db['owners'], reach_all_db['owners'])
+        self.assertEqual(len(self.db['properties']), len(reach_all_db['properties']))
+        self.assertListEqual(self.db['properties'], reach_all_db['properties'])
+        self.assertEqual(len(self.db['managers']), len(reach_all_db['managers']))
+        self.assertListEqual(self.db['managers'], reach_all_db['managers'])
+        self.assertEqual(len(self.db['tenants']), len(reach_all_db['tenants']))
+        self.assertListEqual(self.db['tenants'], reach_all_db['tenants'])
+        self.assertEqual(len(self.db['tickets']), len(reach_all_db['tickets']))
+        self.assertListEqual(self.db['tickets'], reach_all_db['tickets'])
+        self.assertEqual(len(self.db['units']), len(reach_all_db['units']))
+        self.assertListEqual(self.db['units'], reach_all_db['units'])
+        self.assertEqual(len(self.db['contracts']), len(reach_all_db['contracts']))
+        self.assertListEqual(self.db['contracts'], reach_all_db['contracts'])
+
+class CanUpdateAllEntities(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        makeTestDatabase(num_owners=2, num_properties=2, num_managers=3,
+                         num_units=9, num_tenants=5, num_contracts=5,
+                         num_tickets=3)
+
+    @classmethod
+    def tearDownClass(self):
+        destroyTestDatabase()
+
+    def test_update_query_all(self):
+        update_db = {'owners': [],
+                     'properties': [],
+                     'managers': [],
+                     'tenants': [],
+                     'tickets': [],
+                     'units': [],
+                     'contracts': []}
+        def perturb(input_obj_dict):
+            output_obj_dict = copy.deepcopy(input_obj_dict)
+            for key in input_obj_dict.keys():
+                if not key.endswith('id') and key not in ['created_on', 'updated_on']:
+                    output_obj_dict[key] = ''.join(random.choice(
+                        string.ascii_uppercase + string.digits) for _ in range(10))
+            return output_obj_dict
         owners = Owner.query_all()
-        removeById = lambda needle, haystack: [i for i in haystack if i['id'] != str(needle)]
-        # Use query API to reach all inserted entities and prune from @self.db_map.
+        # Use query API to update all inserted entities.
         for owner in owners:
-            self.db_map['owners'] = removeById(owner.id, self.db_map['owners'])
+            new_owner = perturb(lROW2DICT(owner))
+            owner.copy_from_dict(new_owner)
+            update_db['owners'].append(new_owner)
             props = Property.query_by_owner_id(owner.id)
             for prop in props:
-                self.db_map['properties'] = removeById(prop.id, self.db_map['properties'])
+                new_prop = perturb(lROW2DICT(prop))
+                prop.copy_from_dict(new_prop)
+                update_db['properties'].append(new_prop)
                 managers = Manager.query_by_property_id(prop.id)
                 for manager in managers:
-                    self.db_map['managers'] = removeById(manager.id, self.db_map['managers'])
+                    new_manager = perturb(lROW2DICT(manager))
+                    manager.copy_from_dict(new_manager)
+                    update_db['managers'].append(new_manager)
                 tenants = Tenant.query_by_property_id(prop.id)
                 for tenant in tenants:
-                    self.db_map['tenants'] = removeById(tenant.id, self.db_map['tenants'])
+                    new_tenant = perturb(lROW2DICT(tenant))
+                    tenant.copy_from_dict(new_tenant)
+                    update_db['tenants'].append(new_tenant)
                     tickets = Ticket.query_by_tenant_id(tenant.id)
                     for ticket in tickets:
-                        self.db_map['tickets'] = removeById(ticket.id, self.db_map['tickets'])
+                        new_ticket = perturb(lROW2DICT(ticket))
+                        ticket.copy_from_dict(new_ticket)
+                        update_db['tickets'].append(new_ticket)
                 units = Unit.query_by_property_id(prop.id)
                 for unit in units:
-                    self.db_map['units'] = removeById(unit.id, self.db_map['units'])
+                    new_unit = perturb(lROW2DICT(unit))
+                    unit.copy_from_dict(new_unit)
+                    update_db['units'].append(new_unit)
                     contracts = Contract.query_by_unit_id(unit.id)
                     for contract in contracts:
-                        self.db_map['contracts'] = removeById(contract.id, self.db_map['contracts'])
-        # Assert that each record for each entity type has been reached via query API.
-        self.assertEqual(len(self.db_map['owners']), 0)
-        self.assertEqual(len(self.db_map['properties']), 0)
-        self.assertEqual(len(self.db_map['managers']), 0)
-        self.assertEqual(len(self.db_map['tenants']), 0)
-        self.assertEqual(len(self.db_map['tickets']), 0)
-        self.assertEqual(len(self.db_map['units']), 0)
-        self.assertEqual(len(self.db_map['contracts']), 0)
+                        new_contract = perturb(lROW2DICT(contract))
+                        contract.copy_from_dict(new_contract)
+                        update_db['contracts'].append(new_contract)
+        db.session.commit()
+        # Ignore @filter_keys when making assertions (e.g. "updated_on" timestamp).
+        def remove_inner_keys(input_dict, filter_keys=['updated_on']):
+            updated_data_dict = {}
+            for outerkey in input_dict.keys():
+                if outerkey not in updated_data_dict:
+                    updated_data_dict[outerkey] = []
+                for inner_dict in input_dict[outerkey]:
+                    data_dict = {}
+                    for innerkey, val in inner_dict.iteritems():
+                        if innerkey not in filter_keys:
+                            data_dict[innerkey] = val
+                updated_data_dict[outerkey].append(data_dict)
+            return updated_data_dict
+        reach_all_db = databaseReachAll()
+        found_data_dict = remove_inner_keys(reach_all_db)
+        updated_data_dict = remove_inner_keys(update_db)
+        # Assert that each record for each entity type has been updated via query API.
+        self.assertEqual(len(update_db['owners']), len(reach_all_db['owners']))
+        self.assertListEqual(updated_data_dict['owners'], found_data_dict['owners'])
+        self.assertEqual(len(update_db['properties']), len(reach_all_db['properties']))
+        self.assertListEqual(updated_data_dict['properties'], found_data_dict['properties'])
+        self.assertEqual(len(update_db['managers']), len(reach_all_db['managers']))
+        self.assertListEqual(updated_data_dict['managers'], found_data_dict['managers'])
+        self.assertEqual(len(update_db['tenants']), len(reach_all_db['tenants']))
+        self.assertListEqual(updated_data_dict['tenants'], found_data_dict['tenants'])
+        self.assertEqual(len(update_db['tickets']), len(reach_all_db['tickets']))
+        self.assertListEqual(updated_data_dict['tickets'], found_data_dict['tickets'])
+        self.assertEqual(len(update_db['units']), len(reach_all_db['units']))
+        self.assertListEqual(updated_data_dict['units'], found_data_dict['units'])
+        self.assertEqual(len(update_db['contracts']), len(reach_all_db['contracts']))
+        self.assertListEqual(updated_data_dict['contracts'], found_data_dict['contracts'])
 
 # TODO(aditya): Add test for PUT ops via copy_from_dict().
-
 if __name__ == '__main__':
     unittest.main()

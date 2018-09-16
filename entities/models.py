@@ -25,6 +25,8 @@ class Base(db.Model):
     created_on = db.Column(db.DateTime, default=db.func.now())
     updated_on = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
 
+
+
     # Copies as much data from data_dict as possible besides Base model fields
     # id, created_on, updated_on.
     def copy_from_dict(self, data_dict):
@@ -68,6 +70,16 @@ class Owner(Base):
         return owner
 
     @staticmethod
+    def dict_has_all_copyable_keys(data_dict):
+        for col in Owner.__table__.columns:
+            # Skip checking Base model fields.
+            if col.name in ['id', 'created_on', 'updated_on']:
+                continue
+            if col.name not in data_dict.keys():
+                return False
+        return True
+
+    @staticmethod
     def query_by_id(in_id):
         if in_id is None:
             return None
@@ -83,6 +95,16 @@ class Property(Base):
     owner_id = db.Column(db.Integer, ForeignKey('owner.id'))
     managers = relationship('Manager', backref='property')
     units = relationship('Unit', backref='property')
+
+    @staticmethod
+    def dict_has_all_copyable_keys(data_dict):
+        for col in Property.__table__.columns:
+            # Skip checking Base model fields.
+            if col.name in ['id', 'created_on', 'updated_on']:
+                continue
+            if col.name not in data_dict.keys():
+                return False
+        return True
 
     @staticmethod
     def create(address, owner_id):
@@ -115,6 +137,16 @@ class Manager(Base):
     property_id = db.Column(db.Integer, ForeignKey('property.id'))
 
     @staticmethod
+    def dict_has_all_copyable_keys(data_dict):
+        for col in Manager.__table__.columns:
+            # Skip checking Base model fields.
+            if col.name in ['id', 'created_on', 'updated_on']:
+                continue
+            if col.name not in data_dict.keys():
+                return False
+        return True
+
+    @staticmethod
     def create(email, property_id):
         manager = Manager()
         manager.email = email
@@ -145,6 +177,16 @@ class Tenant(Base):
     tickets = relationship('Ticket', backref='tenant')
 
     @staticmethod
+    def dict_has_all_copyable_keys(data_dict):
+        for col in Tenant.__table__.columns:
+            # Skip checking Base model fields.
+            if col.name in ['id', 'created_on', 'updated_on']:
+                continue
+            if col.name not in data_dict.keys():
+                return False
+        return True
+
+    @staticmethod
     def create(email, property_id):
         tenant = Tenant()
         tenant.email = email
@@ -171,6 +213,16 @@ class Tenant(Base):
 class Ticket(Base):
     __tablename__ = 'ticket'
     tenant_id = db.Column(db.Integer, ForeignKey('tenant.id'))
+
+    @staticmethod
+    def dict_has_all_copyable_keys(data_dict):
+        for col in Ticket.__table__.columns:
+            # Skip checking Base model fields.
+            if col.name in ['id', 'created_on', 'updated_on']:
+                continue
+            if col.name not in data_dict.keys():
+                return False
+        return True
 
     @staticmethod
     def create(tenant_id):
@@ -201,6 +253,16 @@ class Unit(Base):
     contracts = relationship('Contract', backref='unit')
 
     @staticmethod
+    def dict_has_all_copyable_keys(data_dict):
+        for col in Unit.__table__.columns:
+            # Skip checking Base model fields.
+            if col.name in ['id', 'created_on', 'updated_on']:
+                continue
+            if col.name not in data_dict.keys():
+                return False
+        return True
+
+    @staticmethod
     def create(property_id):
         unit = Unit()
         unit.property_id = property_id
@@ -227,6 +289,16 @@ class Contract(Base):
     __tablename__ = 'contract'
     unit_id = db.Column(db.Integer, ForeignKey('unit.id'))
     tenant_id = db.Column(db.Integer, ForeignKey('tenant.id'))
+
+    @staticmethod
+    def dict_has_all_copyable_keys(data_dict):
+        for col in Contract.__table__.columns:
+            # Skip checking Base model fields.
+            if col.name in ['id', 'created_on', 'updated_on']:
+                continue
+            if col.name not in data_dict.keys():
+                return False
+        return True
 
     @staticmethod
     def create(unit_id, tenant_id):

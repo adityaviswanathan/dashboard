@@ -132,52 +132,44 @@ def add_entity(entity_name):
     payload = request.get_json()
     if entity_name == 'owners':
         print 'Adding owner: %s' % str(payload)
-        if 'email' not in payload:
-            raise Exception('Input payload does not have required field email')
+        if not Owner.dict_has_all_copyable_keys(payload):
+            raise Exception('Input payload does not have required field')
         entry = row2dict(Owner.create(payload['email']))
         Db.session.commit()
     if entity_name == 'properties':
         print 'Adding property: %s' % str(payload)
-        if 'address' not in payload:
-            raise Exception('Input payload does not have required field address')
-        if 'owner_id' not in payload:
-            raise Exception('Input payload does not have required field owner_id')
+        if not Property.dict_has_all_copyable_keys(payload):
+            raise Exception('Input payload does not have required field')
         entry = row2dict(Property.create(payload['address'], payload['owner_id']))
         Db.session.commit()
     if entity_name == 'managers':
         print 'Adding manager: %s' % str(payload)
-        if 'email' not in payload:
-            raise Exception('Input payload does not have required field email')
-        if 'property_id' not in payload:
-            raise Exception('Input payload does not have required field property_id')
+        if not Manager.dict_has_all_copyable_keys(payload):
+            raise Exception('Input payload does not have required field')
         entry = row2dict(Manager.create(payload['email'], payload['property_id']))
         Db.session.commit()
     if entity_name == 'tenants':
         print 'Adding tenant: %s' % str(payload)
-        if 'email' not in payload:
-            raise Exception('Input payload does not have required field email')
-        if 'property_id' not in payload:
-            raise Exception('Input payload does not have required field property_id')
+        if not Tenant.dict_has_all_copyable_keys(payload):
+            raise Exception('Input payload does not have required field')
         entry = row2dict(Tenant.create(payload['email'], payload['property_id']))
         Db.session.commit()
     if entity_name == 'tickets':
         print 'Adding ticket: %s' % str(payload)
-        if 'tenant_id' not in payload:
-            raise Exception('Input payload does not have required field tenant_id')
+        if not Ticket.dict_has_all_copyable_keys(payload):
+            raise Exception('Input payload does not have required field')
         entry = row2dict(Ticket.create(payload['tenant_id']))
         Db.session.commit()
     if entity_name == 'units':
         print 'Adding unit: %s' % str(payload)
-        if 'property_id' not in payload:
-            raise Exception('Input payload does not have required field property_id')
+        if not Unit.dict_has_all_copyable_keys(payload):
+            raise Exception('Input payload does not have required field')
         entry = row2dict(Unit.create(payload['property_id']))
         Db.session.commit()
     if entity_name == 'contracts':
         print 'Adding contract: %s' % str(payload)
-        if 'unit_id' not in payload:
-            raise Exception('Input payload does not have required field unit_id')
-        if 'tenant_id' not in payload:
-            raise Exception('Input payload does not have required field tenant_id')
+        if not Contract.dict_has_all_copyable_keys(payload):
+            raise Exception('Input payload does not have required field')
         entry = row2dict(Contract.create(payload['unit_id'], payload['tenant_id']))
         Db.session.commit()
     return jsonify(entry)
