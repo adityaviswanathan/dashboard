@@ -19,13 +19,50 @@ my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from report_utils import AxisDecision, ReportTraverser, to_csv
 from formula_engine import ParseTree, Function
-from entities import Owner, Property, Manager, Tenant, Ticket, Unit, Contract, Db
+from entities import Db, ActionExecutor
 
 ALLOWED_EXTENSIONS = set(['xlsx', 'csv', 'txt'])
 
 def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Entity API (supports GET/POST/PUT semantics).
+@app.route('/<entity_name>', methods=['GET'])
+def get_entity(entity_name):
+    data = []
+    try:
+        print 'Querying %s...' % entity_name
+        executor = ActionExecutor(entity_name)
+        data = executor.query_all()
+        print 'Found %d records' % len(data)
+    except Exception as e:
+        print(e)
+    return render_template('entity_table.html', entityName=entity_name, entities=data)
+
+@app.route('/<entity_name>', methods=['POST'])
+def add_entity(entity_name):
+    entry = {}
+    payload = request.get_json()
+    try:
+        print 'Creating %s...' % entity_name
+        executor = ActionExecutor(entity_name)
+        entry = executor.create(payload)
+    except Exception as e:
+        print(e)
+    return jsonify(entry)
+
+@app.route('/<entity_name>', methods=['PUT'])
+def update_entity(entity_name):
+    entry = {}
+    payload = request.get_json()
+    try:
+        print 'Updating %s with id %s' % (entity_name, payload['id'])
+        executor = ActionExecutor(entity_name)
+        entry = executor.update(payload)
+    except Exception as e:
+        print(e)
+    return jsonify(entry)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -80,166 +117,6 @@ def index():
             return render_template('home.html', dates=d, titles=t, rows=r, funcs=funcs, filename=data_file)
     # GET request default case.
     return render_template('home.html')
-
-# Entity API (supports GET/POST/PUT semantics).
-# TODO(aditya): Move as much of this to a separate class as possible.
-@app.route('/<entity_name>', methods=['GET'])
-def get_entity(entity_name):
-    print 'Starting to load data for entity "%s"' % entity_name
-    legal_entities = ['owners', 'properties', 'managers', 'tenants', 'tickets', 'units', 'contracts']
-    row2dict = lambda r: { c.name: str(getattr(r, c.name)) for c in r.__table__.columns }
-    if entity_name not in legal_entities:
-        print 'Cannot load data for %s' % entity_name
-    data = []
-    if entity_name == 'owners':
-        print 'Querying owners...'
-        data = [row2dict(entry) for entry in Owner.query_all()]
-        print 'Found %d records' % len(data)
-    if entity_name == 'properties':
-        print 'Querying properties...'
-        data = [row2dict(entry) for entry in Property.query_all()]
-        print 'Found %d records' % len(data)
-    if entity_name == 'managers':
-        print 'Querying managers...'
-        data = [row2dict(entry) for entry in Manager.query_all()]
-        print 'Found %d records' % len(data)
-    if entity_name == 'tenants':
-        print 'Querying tenants...'
-        data = [row2dict(entry) for entry in Tenant.query_all()]
-        print 'Found %d records' % len(data)
-    if entity_name == 'tickets':
-        print 'Querying tickets...'
-        data = [row2dict(entry) for entry in Ticket.query_all()]
-        print 'Found %d records' % len(data)
-    if entity_name == 'units':
-        print 'Querying units...'
-        data = [row2dict(entry) for entry in Unit.query_all()]
-        print 'Found %d records' % len(data)
-    if entity_name == 'contracts':
-        print 'Querying contracts...'
-        data = [row2dict(entry) for entry in Contract.query_all()]
-        print 'Found %d records' % len(data)
-    return render_template('entity_table.html', entityName=entity_name, entities=data)
-
-@app.route('/<entity_name>', methods=['POST'])
-def add_entity(entity_name):
-    print 'Adding entry for entity "%s"' % entity_name
-    legal_entities = ['owners', 'properties', 'managers', 'tenants', 'tickets', 'units', 'contracts']
-    row2dict = lambda r: { c.name: str(getattr(r, c.name)) for c in r.__table__.columns }
-    entry = {}
-    if entity_name not in legal_entities:
-        print 'Cannot handle data transport for %s' % entity_name
-    payload = request.get_json()
-    if entity_name == 'owners':
-        print 'Adding owner: %s' % str(payload)
-        if not Owner.dict_has_all_copyable_keys(payload):
-            raise Exception('Input payload does not have required field')
-        entry = row2dict(Owner.create(payload['email']))
-        Db.session.commit()
-    if entity_name == 'properties':
-        print 'Adding property: %s' % str(payload)
-        if not Property.dict_has_all_copyable_keys(payload):
-            raise Exception('Input payload does not have required field')
-        entry = row2dict(Property.create(payload['address'], payload['owner_id']))
-        Db.session.commit()
-    if entity_name == 'managers':
-        print 'Adding manager: %s' % str(payload)
-        if not Manager.dict_has_all_copyable_keys(payload):
-            raise Exception('Input payload does not have required field')
-        entry = row2dict(Manager.create(payload['email'], payload['property_id']))
-        Db.session.commit()
-    if entity_name == 'tenants':
-        print 'Adding tenant: %s' % str(payload)
-        if not Tenant.dict_has_all_copyable_keys(payload):
-            raise Exception('Input payload does not have required field')
-        entry = row2dict(Tenant.create(payload['email'], payload['property_id']))
-        Db.session.commit()
-    if entity_name == 'tickets':
-        print 'Adding ticket: %s' % str(payload)
-        if not Ticket.dict_has_all_copyable_keys(payload):
-            raise Exception('Input payload does not have required field')
-        entry = row2dict(Ticket.create(payload['tenant_id']))
-        Db.session.commit()
-    if entity_name == 'units':
-        print 'Adding unit: %s' % str(payload)
-        if not Unit.dict_has_all_copyable_keys(payload):
-            raise Exception('Input payload does not have required field')
-        entry = row2dict(Unit.create(payload['property_id']))
-        Db.session.commit()
-    if entity_name == 'contracts':
-        print 'Adding contract: %s' % str(payload)
-        if not Contract.dict_has_all_copyable_keys(payload):
-            raise Exception('Input payload does not have required field')
-        entry = row2dict(Contract.create(payload['unit_id'], payload['tenant_id']))
-        Db.session.commit()
-    return jsonify(entry)
-
-@app.route('/<entity_name>', methods=['PUT'])
-def update_entity(entity_name):
-    payload = request.get_json()
-    print 'Updating entry for entity "%s" with id %s' % (entity_name, payload['id'])
-    legal_entities = ['owners', 'properties', 'managers', 'tenants', 'tickets', 'units', 'contracts']
-    row2dict = lambda r: { c.name: str(getattr(r, c.name)) for c in r.__table__.columns }
-    entry = {}
-    if entity_name not in legal_entities:
-        print 'Cannot handle data transport for %s' % entity_name
-    if entity_name == 'owners':
-        print 'Updating owner with data: %s' % str(payload)
-        if 'id' not in payload:
-            raise Exception('Cannot query for object because field id is missing from input payload')
-        owner = Owner.query_by_id(payload['id'])
-        owner.copy_from_dict(payload)
-        entry = row2dict(owner)
-        Db.session.commit()
-    if entity_name == 'properties':
-        print 'Updating property with data: %s' % str(payload)
-        if 'id' not in payload:
-            raise Exception('Cannot query for object because field id is missing from input payload')
-        prop = Property.query_by_id(payload['id'])
-        prop.copy_from_dict(payload)
-        entry = row2dict(prop)
-        Db.session.commit()
-    if entity_name == 'managers':
-        print 'Updating manager with data: %s' % str(payload)
-        if 'id' not in payload:
-            raise Exception('Cannot query for object because field id is missing from input payload')
-        manager = Manager.query_by_id(payload['id'])
-        manager.copy_from_dict(payload)
-        entry = row2dict(manager)
-        Db.session.commit()
-    if entity_name == 'tenants':
-        print 'Updating tenant with data: %s' % str(payload)
-        if 'id' not in payload:
-            raise Exception('Cannot query for object because field id is missing from input payload')
-        tenant = Tenant.query_by_id(payload['id'])
-        tenant.copy_from_dict(payload)
-        tenant = row2dict(tenant)
-        Db.session.commit()
-    if entity_name == 'tickets':
-        print 'Updating tickets with data: %s' % str(payload)
-        if 'id' not in payload:
-            raise Exception('Cannot query for object because field id is missing from input payload')
-        ticket = Ticket.query_by_id(payload['id'])
-        ticket.copy_from_dict(payload)
-        ticket = row2dict(ticket)
-        Db.session.commit()
-    if entity_name == 'units':
-        print 'Updating units with data: %s' % str(payload)
-        if 'id' not in payload:
-            raise Exception('Cannot query for object because field id is missing from input payload')
-        unit = Unit.query_by_id(payload['id'])
-        unit.copy_from_dict(payload)
-        unit = row2dict(unit)
-        Db.session.commit()
-    if entity_name == 'contracts':
-        print 'Updating units with data: %s' % str(payload)
-        if 'id' not in payload:
-            raise Exception('Cannot query for object because field id is missing from input payload')
-        contract = Contract.query_by_id(payload['id'])
-        contract.copy_from_dict(payload)
-        entry = row2dict(contract)
-        Db.session.commit()
-    return jsonify(entry)
 
 @app.route('/execute', methods=['POST'])
 def execute_formula():

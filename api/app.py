@@ -18,5 +18,5 @@ sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 
 UPLOAD_FOLDER = 'in'
 app = Flask(__name__)
-app.config.from_object('api.config.DevelopmentConfig')
+app.config.from_object('api.config.TestDevelopmentConfig')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER

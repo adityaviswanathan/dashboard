@@ -161,9 +161,13 @@
 {% for key, value in entity.iteritems() %}
 <div class="column">
     {% if key != "id" and key != "updated_on" and key != "created_on" %}
-    <input class="tableitem {{ key }}" type="text" value="{{ value }}">
+    {% if value["type"] == "DATETIME" %}
+    <input class="tableitem {{ key }}" type="date" value={{ value["data"] }}>
     {% else %}
-    <p class="tableitem {{ key }}">{{ value }}</p>
+    <input class="tableitem {{ key }}" type="text" value={{ value["data"] }}>
+    {% endif %}
+    {% else %}
+    <p class="tableitem {{ key }}">{{ value["data"] }}</p>
     {% endif %}
 </div>
 {% endfor %}
