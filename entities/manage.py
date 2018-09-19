@@ -9,7 +9,6 @@ __email__ = 'aditya@adityaviswanathan.com'
 
 import os
 import sys
-from db import db
 from flask_script import Manager as ScriptRunner
 from flask_migrate import Migrate, MigrateCommand
 from models import *
@@ -17,6 +16,7 @@ from models import *
 my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from api import app
+from db import db
 
 migrate = Migrate(app, db)
 manager = ScriptRunner(app)

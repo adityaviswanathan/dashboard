@@ -15,7 +15,7 @@
             debug("Updating entity...");
             var rowContainer = el.parentElement.parentElement.children;
             debug(rowContainer);
-            var payload = getTableItemValues(rowContainer);
+            var payload = getTableItemValues(rowContainer, []);
             debug("Attempting to update an entity of type {{ entityName }} with payload:");
             debug(payload);
             var req = new XMLHttpRequest();
@@ -30,13 +30,20 @@
             };
             req.send(JSON.stringify(payload));
         }
-        function getTableItemValues(rowContainer) {
+        function getTableItemValues(rowContainer, filteredItems) {
             var payload = {}
             for (var i = 0; i < rowContainer.length; i++) {
                 var columnElement = rowContainer[i];
                 var inputElements = columnElement.children;
                 for (var j = 0; j < inputElements.length; j++) {
                     var inputElement = inputElements[j];
+                    var skipElement = false;
+                    for (var l = 0; l < filteredItems.length; l++) {
+                        if (inputElement.classList.contains(filteredItems[l])) {
+                            skipElement = true;
+                        }
+                    }
+                    if (skipElement) continue;
                     if (inputElement.classList.contains("tableitem")) {
                         var key = "";
                         for (var k = 0; k < inputElement.classList.length; k++) {
@@ -57,7 +64,7 @@
             // Kind of hacky way to get all of the inputs for a new entity entry.
             var rowContainer = el.parentElement.parentElement.children;
             debug(rowContainer);
-            var payload = getTableItemValues(rowContainer);
+            var payload = getTableItemValues(rowContainer, []);
             debug("Attempting to add an entity of type {{ entityName }} with payload:");
             debug(payload);
             var req = new XMLHttpRequest();
@@ -76,11 +83,11 @@
             debug("Filtering entities...");
             // Kind of hacky way to get all of the inputs for a new entity entry.
             var rowContainer = el.parentElement.parentElement.children;
-            var payload = getTableItemValues(rowContainer);
+            var payload = getTableItemValues(rowContainer, ["payment_name", "payment_account_number", "payment_routing_number"]);
             var tableRows = [];
             var tableContainer = document.getElementById("table-container");
             for (var i = 0; i < tableContainer.children.length; i++) {
-                var tableRowColumns = getTableItemValues(tableContainer.children[i].children);
+                var tableRowColumns = getTableItemValues(tableContainer.children[i].children, ["payment_name", "payment_account_number", "payment_routing_number"]);
                 debug(tableRowColumns);
                 var filterTableRow = false;
                 for (var column in tableRowColumns) {
@@ -114,7 +121,7 @@
 {% for entity in entities[:1] %}
 {% for key, _ in entity.iteritems() %}
 <div class="column">
-    {% if key != "id" and key != "updated_on" and key != "created_on" %}
+    {% if key not in ["id", "updated_on", "created_on", "stripe_account_id", "stripe_bank_account_id"] %}
     <input class="tableitem {{ key }}" type="text">
     {% endif %}
 </div>
@@ -160,14 +167,32 @@
 <div class="row">
 {% for key, value in entity.iteritems() %}
 <div class="column">
-    {% if key != "id" and key != "updated_on" and key != "created_on" %}
+    <!-- COLUMN VALUE DOES NOT EXIST -->
+    {% if "data" not in value.keys() %}
+    <!-- PAYMENT INFO -->
+    {% if key == "stripe_account_id" %}
+    <input class="tableitem payment_name" type="text" placeholder="account holder name">
+    {% elif key == "stripe_bank_account_id" %}
+    <input class="tableitem payment_account_number" type="text" placeholder="account number">
+    <input class="tableitem payment_routing_number" type="text" placeholder="routing number">
+    <!-- END PAYMENT INFO -->
+    {% endif %}
+    <!-- COLUMN VALUE EXISTS -->
+    {% else %}
+    <!-- MUTABLE COLUMNS -->
+    {% if key not in ["id", "updated_on", "created_on", "stripe_account_id", "stripe_bank_account_id"] %}
+    <!-- COLUMN INPUT CASED BY DATA TYPE -->
     {% if value["type"] == "DATETIME" %}
     <input class="tableitem {{ key }}" type="date" value={{ value["data"] }}>
     {% else %}
-    <input class="tableitem {{ key }}" type="text" value={{ value["data"] }}>
+    <input class="tableitem {{ key }}" type="text" value="{{ value["data"] }}">
     {% endif %}
+    <!-- END COLUMN INPUT CASED BY DATA TYPE -->
     {% else %}
+    <!-- IMMUTABLE COLUMNS -->
     <p class="tableitem {{ key }}">{{ value["data"] }}</p>
+    {% endif %}
+    <!-- END COLUMN VALUE EXISTENCE CASE -->
     {% endif %}
 </div>
 {% endfor %}

@@ -16,3 +16,4 @@ sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from api import app
 
 db = SQLAlchemy(app)
+db.init_app(app)

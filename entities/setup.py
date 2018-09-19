@@ -7,6 +7,7 @@ Basic script to initialize database with some test entries.
 __author__ = 'Aditya Viswanathan'
 __email__ = 'aditya@adityaviswanathan.com'
 
+import argparse
 import os
 import sys
 from db import db
@@ -19,9 +20,31 @@ my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from api import app
 
-migrate = Migrate(app, db)
-migrate.init_app(app)
-db.drop_all()
-db.create_all()
-make_entities(num_owners=2, num_properties=2, num_managers=2,
-              num_units=2, num_tenants=2, num_contracts=2, num_tickets=2)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--num_owners', type=int, default=1, help='number of owners to generate')
+    parser.add_argument(
+        '--num_properties', type=int, default=1, help='number of properties to generate per owner')
+    parser.add_argument(
+        '--num_managers', type=int, default=1, help='number of managers to generate per property')
+    parser.add_argument(
+        '--num_units', type=int, default=1, help='number of units to generate per property')
+    parser.add_argument(
+        '--num_tenants', type=int, default=1, help='number of tenants to generate per property')
+    parser.add_argument(
+        '--num_tickets', type=int, default=1, help='number of tickets to generate per tenant')
+    parser.add_argument(
+        '--num_contracts', type=int, default=1, help='number of contracts to generate per min(units, tenants)')
+    args = parser.parse_args()
+    migrate = Migrate(app, db)
+    migrate.init_app(app)
+    db.drop_all()
+    db.create_all()
+    make_entities(num_owners=args.num_owners,
+                  num_properties=args.num_properties,
+                  num_managers=args.num_managers,
+                  num_units=args.num_units,
+                  num_tenants=args.num_tenants,
+                  num_tickets=args.num_tickets,
+                  num_contracts=args.num_contracts)

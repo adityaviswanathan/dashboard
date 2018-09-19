@@ -2,10 +2,10 @@
 
 '''
 The entities in the app have has-many relationships in the following manner:
-- Owner
+- Owner <-> Bank account (payee)
 -- Property
 --- Manager
---- Tenant
+--- Tenant <-> Bank account/cc (payer)
 ---- Ticket
 --- Unit
 ---- Contract
@@ -15,9 +15,12 @@ __author__ = 'Aditya Viswanathan'
 __email__ = 'aditya@adityaviswanathan.com'
 
 import datetime
+import stripe
+from api import app
 from db import db
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
+
 
 class Base(db.Model):
     __abstract__ = True
@@ -29,33 +32,34 @@ class Base(db.Model):
     # Used for setting '_id' fields for models, ensuring the reference exists.
     def set_id(self, id_key, id_val):
         class_name = id_key[0:id_key.find('_id')].capitalize()
-        if eval(class_name).query_by_id(id_val) is None:
-            raise Exception(
-                class_name + ' does not have entry with id ' + str(id_val))
+        try:
+            ref = eval(class_name).query_by_id(id_val)
+            # Prevent an id ref from being set for a non-existent entity.
+            if ref is None:
+                return
+        except:
+            return
         setattr(self, id_key, id_val)
+
+    @staticmethod
+    def base_cols():
+        return ['id', 'created_on', 'updated_on']
 
     # Copies as much data from data_dict as possible besides Base model fields
     # id, created_on, updated_on.
     def copy_from_dict(self, data_dict):
+        filtered_cols = Base.base_cols()
+        all_cols = [col.name for col in self.__table__.columns]
         for key, value in data_dict.iteritems():
-            # Find matching column in model schema (if exists).
-            # This is a bit HACKy because:
-            # - it introduces an otherwise unnecessary additional loop over a
-            #   model's columns
-            # - there should be a functional way to map client payloads to an
-            #   DB object.
-            # TODO(aditya): Py dict -> object mapper class.
-            for col in self.__table__.columns:
-                # Skip copying Base model fields.
-                if col.name in ['id', 'created_on', 'updated_on']:
-                    continue
-                # Copy legal field.
-                if col.name == key:
-                    if col.name.endswith('_id'):
-                        self.set_id(key, value)
-                    else:
-                        setattr(self, key, value)
-                    break
+            if key in filtered_cols:
+                continue
+            if key not in all_cols:
+                raise Exception(
+                    'Cannot copy value %s because %s is not a valid column' % (value, key))
+            if key.endswith('id'):
+                self.set_id(key, value)
+            else:
+                setattr(self, key, value)
 
     def save(self):
         self.updated_on = datetime.datetime.utcnow()
@@ -71,6 +75,8 @@ class Base(db.Model):
 class Owner(Base):
     __tablename__ = 'owner'
     email = db.Column(db.Text)
+    stripe_account_id = db.Column(db.Text)
+    stripe_bank_account_id = db.Column(db.Text)
     properties = relationship('Property', backref='owner')
 
     @staticmethod
@@ -82,13 +88,11 @@ class Owner(Base):
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        for col in Owner.__table__.columns:
-            # Skip checking Base model fields.
-            if col.name in ['id', 'created_on', 'updated_on']:
-                continue
-            if col.name not in data_dict.keys():
-                return False
-        return True
+        filtered_cols = ['stripe_account_id', 'stripe_bank_account_id']
+        all_filtered_cols = set(filtered_cols + Base.base_cols())
+        owner_cols = [
+            col.name for col in Owner.__table__.columns if col.name not in all_filtered_cols]
+        return set(owner_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
     def query_by_id(in_id):
@@ -100,6 +104,30 @@ class Owner(Base):
     def query_all():
         return Owner.query.all()
 
+    def create_payee(self, payee_name, account_number, routing_number):
+        if self.stripe_account_id is not None:
+            raise Exception('Owner %s already has an account id %s' %
+                            (self.id, self.stripe_account_id))
+        if self.stripe_bank_account_id is not None:
+            raise Exception('Owner %s already has an bank account id %s' %
+                            (self.id, self.stripe_bank_account_id))
+        print 'Creating Stripe account for owner with email %s' % self.email
+        account_res = stripe.Account.create(
+            type='custom', country='US', email=self.email)
+        self.stripe_account_id = account_res['id']
+        stripe_account = stripe.Account.retrieve(self.stripe_account_id)
+        print 'Creating Stripe bank account for owner with name %s' % payee_name
+        bank_res = stripe_account.external_accounts.create(external_account={
+            'object': 'bank_account',
+            'country': 'US',
+            'currency': 'usd',
+            'account_holder_name': payee_name,
+            'account_holder_type': 'individual',
+            'routing_number': app.config.get('STRIPE_TEST_ROUTING_NUMBER', routing_number),
+            'account_number': app.config.get('STRIPE_TEST_ACCOUNT_NUMBER', account_number)
+        })
+        self.stripe_bank_account_id = bank_res['id']
+
 
 class Property(Base):
     __tablename__ = 'property'
@@ -108,15 +136,16 @@ class Property(Base):
     managers = relationship('Manager', backref='property')
     units = relationship('Unit', backref='property')
 
+    def __init__(self):
+        self.required_columns = ['email']
+
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        for col in Property.__table__.columns:
-            # Skip checking Base model fields.
-            if col.name in ['id', 'created_on', 'updated_on']:
-                continue
-            if col.name not in data_dict.keys():
-                return False
-        return True
+        filtered_cols = []
+        all_filtered_cols = set(filtered_cols + Base.base_cols())
+        prop_cols = [
+            col.name for col in Property.__table__.columns if col.name not in all_filtered_cols]
+        return set(prop_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
     def create(address, owner_id):
@@ -151,13 +180,11 @@ class Manager(Base):
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        for col in Manager.__table__.columns:
-            # Skip checking Base model fields.
-            if col.name in ['id', 'created_on', 'updated_on']:
-                continue
-            if col.name not in data_dict.keys():
-                return False
-        return True
+        filtered_cols = []
+        all_filtered_cols = set(filtered_cols + Base.base_cols())
+        manager_cols = [
+            col.name for col in Manager.__table__.columns if col.name not in all_filtered_cols]
+        return set(manager_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
     def create(email, property_id):
@@ -188,17 +215,17 @@ class Tenant(Base):
     __tablename__ = 'tenant'
     email = db.Column(db.Text)
     property_id = db.Column(db.Integer, ForeignKey('property.id'))
+    stripe_account_id = db.Column(db.Text)
+    stripe_bank_account_id = db.Column(db.Text)
     tickets = relationship('Ticket', backref='tenant')
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        for col in Tenant.__table__.columns:
-            # Skip checking Base model fields.
-            if col.name in ['id', 'created_on', 'updated_on']:
-                continue
-            if col.name not in data_dict.keys():
-                return False
-        return True
+        filtered_cols = ['stripe_account_id', 'stripe_bank_account_id']
+        all_filtered_cols = set(filtered_cols + Base.base_cols())
+        tenant_cols = [
+            col.name for col in Tenant.__table__.columns if col.name not in all_filtered_cols]
+        return set(tenant_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
     def create(email, property_id):
@@ -224,6 +251,29 @@ class Tenant(Base):
             return None
         return Tenant.query.filter_by(property_id=property_id).all()
 
+    def create_payer(self, payer_name, account_number, routing_number):
+        if self.stripe_account_id.isnot(None):
+            raise Exception('Tenant %s already has an account id %s' %
+                            (self.id, self.stripe_account_id))
+        if self.stripe_bank_account_id.isnot(None):
+            raise Exception('Tenant %s already has an bank account id %s' %
+                            (self.id, self.stripe_bank_account_id))
+        print 'Creating Stripe account for tenant with email %s' % self.email
+        customer_res = stripe.Customer.create(email=self.email)
+        self.stripe_account_id = customer_res['id']
+        stripe_account = stripe.Customer.retrieve(self.stripe_account_id)
+        print 'Creating Stripe bank account for tenant with name %s' % payer_name
+        bank_res = stripe_account.sources.create(source={
+            'object': 'bank_account',
+            'country': 'US',
+            'currency': 'usd',
+            'account_holder_name': payer_name,
+            'account_holder_type': 'individual',
+            'routing_number': app.config.get('STRIPE_TEST_ROUTING_NUMBER', routing_number),
+            'account_number': app.config.get('STRIPE_TEST_ACCOUNT_NUMBER', account_number)
+        })
+        self.stripe_bank_account_id = bank_res['id']
+
 
 class Ticket(Base):
     __tablename__ = 'ticket'
@@ -231,13 +281,11 @@ class Ticket(Base):
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        for col in Ticket.__table__.columns:
-            # Skip checking Base model fields.
-            if col.name in ['id', 'created_on', 'updated_on']:
-                continue
-            if col.name not in data_dict.keys():
-                return False
-        return True
+        filtered_cols = []
+        all_filtered_cols = set(filtered_cols + Base.base_cols())
+        ticket_cols = [
+            col.name for col in Ticket.__table__.columns if col.name not in all_filtered_cols]
+        return set(ticket_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
     def create(tenant_id):
@@ -270,13 +318,11 @@ class Unit(Base):
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        for col in Unit.__table__.columns:
-            # Skip checking Base model fields.
-            if col.name in ['id', 'created_on', 'updated_on']:
-                continue
-            if col.name not in data_dict.keys():
-                return False
-        return True
+        filtered_cols = []
+        all_filtered_cols = set(filtered_cols + Base.base_cols())
+        unit_cols = [
+            col.name for col in Unit.__table__.columns if col.name not in all_filtered_cols]
+        return set(unit_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
     def create(property_id):
@@ -309,13 +355,11 @@ class Contract(Base):
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        for col in Contract.__table__.columns:
-            # Skip checking Base model fields.
-            if col.name in ['id', 'created_on', 'updated_on']:
-                continue
-            if col.name not in data_dict.keys():
-                return False
-        return True
+        filtered_cols = []
+        all_filtered_cols = set(filtered_cols + Base.base_cols())
+        contract_cols = [
+            col.name for col in Contract.__table__.columns if col.name not in all_filtered_cols]
+        return set(contract_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
     def create(unit_id, tenant_id):
@@ -346,3 +390,28 @@ class Contract(Base):
         if tenant_id is None:
             return None
         return Contract.query.filter_by(tenant_id=tenant_id).all()
+
+    def create_transaction(self):
+        DUMMY_PAYMOUNT_AMOUNT = 100
+        unit = Unit.query_by_id(unit_id)
+        tenant = Tenant.query_by_id(tenant_id)
+        # Charge the tenant for the payment
+        customer = stripe.Customer.retrieve(tenant.stripe_account_id)
+        bank_account = customer.sources.retrieve(tenant.stripe_bank_account_id)
+        charge_res = stripe.Charge.create(
+            amount=DUMMY_PAYMOUNT_AMOUNT,
+            currency='usd',
+            source=bank_account,
+            description='test charge'
+        )
+        # TODO(aditya): Verify charge success
+        # Transfer the payment from internal account to owner
+        prop = Property.query_by_id(unit.property_id)
+        owner = Owner.query_by_id(prop.owner_id)
+        transfer_res = stripe.Transfer.create(
+            amount=DUMMY_PAYMOUNT_AMOUNT,
+            currency='usd',
+            destination=owner.stripe_bank_account_id
+        )
+        # TODO(aditya): Verify transfer success
+        print transfer_res

@@ -11,6 +11,7 @@ __email__ = 'aditya@adityaviswanathan.com'
 import enum
 from entities import Owner, Property, Manager, Tenant, Ticket, Unit, Contract, Db
 
+
 class Entity(enum.Enum):
     OWNER = 0
     PROPERTY = 1
@@ -19,6 +20,7 @@ class Entity(enum.Enum):
     TICKET = 4
     UNIT = 5
     CONTRACT = 6
+
 
 class ActionExecutor(object):
     @staticmethod
@@ -41,60 +43,140 @@ class ActionExecutor(object):
 
     @staticmethod
     def string2entity(entity_str):
-        if entity_str == 'Owner':
+        entity_name = entity_str.capitalize()
+        if entity_name == 'Owner':
             return Entity.OWNER
-        if entity_str == 'Property':
+        if entity_name == 'Property':
             return Entity.PROPERTY
-        if entity_str == 'Manager':
+        if entity_name == 'Manager':
             return Entity.MANAGER
-        if entity_str == 'Tenant':
+        if entity_name == 'Tenant':
             return Entity.TENANT
-        if entity_str == 'Ticket':
+        if entity_name == 'Ticket':
             return Entity.TICKET
-        if entity_str == 'Unit':
+        if entity_name == 'Unit':
             return Entity.UNIT
-        if entity_str == 'Contract':
+        if entity_name == 'Contract':
             return Entity.CONTRACT
-        raise Exception('Entity enum %s not recognized' % entity_str)
+        raise Exception('Entity enum %s not recognized' % entity_name)
 
     @staticmethod
-    def row2dict(r): return {c.name: {'data': str(getattr(r, c.name)), 'type': str(c.type)}
-                             for c in r.__table__.columns}
+    def row2dict(r):
+        row_dict = {}
+        for c in r.__table__.columns:
+            if getattr(r, c.name) is None:
+                row_dict[c.name] = {'type': str(c.type)}
+            else:
+                row_dict[c.name] = {'data': str(getattr(r, c.name)),
+                                    'type': str(c.type)}
+        return row_dict
+
+    @staticmethod
+    def payment_params():
+        return ['payment_name', 'payment_account_number', 'payment_routing_number']
 
     def __init__(self, entity_name):
-        self.entity = ActionExecutor.string2entity(entity_name.capitalize())
-
-    def is_payee(self):
-        return self.entity in [Entity.OWNER]
-
-    def is_payer(self):
-        return self.entity in [Entity.TENANT]
+        self.entity = ActionExecutor.string2entity(entity_name)
 
     def query_all(self):
-        data = [ActionExecutor.row2dict(entry) for entry in getattr(
-            eval(ActionExecutor.entity2string(self.entity)), 'query_all')()]
+        data = []
+        if self.entity == Entity.OWNER:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Owner.query_all()]
+        if self.entity == Entity.PROPERTY:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Property.query_all()]
+        if self.entity == Entity.MANAGER:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Manager.query_all()]
+        if self.entity == Entity.TENANT:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Tenant.query_all()]
+        if self.entity == Entity.TICKET:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Ticket.query_all()]
+        if self.entity == Entity.UNIT:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Unit.query_all()]
+        if self.entity == Entity.CONTRACT:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Contract.query_all()]
         return data
 
     def create(self, payload):
-        is_valid = getattr(eval(ActionExecutor.entity2string(
-            self.entity)), 'dict_has_all_required_keys')(payload)
-        if not is_valid:
-            raise Exception('Entity %s was not supplied a complete payload for construction' %
+        entry = None
+        if self.entity == Entity.OWNER:
+            if not Owner.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            owner = Owner.create(**payload)
+            entry = ActionExecutor.row2dict(owner)
+        if self.entity == Entity.PROPERTY:
+            if not Property.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Property.create(**payload))
+        if self.entity == Entity.MANAGER:
+            if not Manager.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Manager.create(**payload))
+        if self.entity == Entity.TENANT:
+            if not Tenant.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            tenant = Tenant.create(**payload)
+            entry = ActionExecutor.row2dict(tenant)
+        if self.entity == Entity.TICKET:
+            if not Ticket.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Ticket.create(**payload))
+        if self.entity == Entity.UNIT:
+            if not Unit.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Unit.create(**payload))
+        if self.entity == Entity.CONTRACT:
+            if not Contract.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Contract.create(**payload))
+        if entry is None:
+            raise Exception('Create semantics for %s are undefined' %
                             ActionExecutor.entity2string(self.entity))
-        entry = ActionExecutor.row2dict(getattr(
-            eval(ActionExecutor.entity2string(self.entity)), 'create')(**payload))
         Db.session.commit()
         return entry
 
     def update(self, payload):
-        entry = getattr(eval(ActionExecutor.entity2string(
-            self.entity)), 'query_by_id')(payload['id'])
-        getattr(entry, 'copy_from_dict')(payload)
+        entry = None
+        if self.entity == Entity.OWNER:
+            entry = Owner.query_by_id(payload['id'])
+            if set(ActionExecutor.payment_params()).issubset(payload.keys()) and \
+                all([payload[payment_param] for payment_param in ActionExecutor.payment_params()]):
+                entry.create_payee(
+                    payload['payment_name'], payload['payment_account_number'], payload['payment_routing_number'])
+        if self.entity == Entity.PROPERTY:
+            entry = Property.query_by_id(payload['id'])
+        if self.entity == Entity.MANAGER:
+            entry = Manager.query_by_id(payload['id'])
+        if self.entity == Entity.TENANT:
+            entry = Tenant.query_by_id(payload['id'])
+            if set(ActionExecutor.payment_params()).issubset(payload.keys()) and \
+                all([payload[payment_param] for payment_param in ActionExecutor.payment_params()]):
+                entry.create_payer(
+                    payload['payment_name'], payload['payment_account_number'], payload['payment_routing_number'])
+        if self.entity == Entity.TICKET:
+            entry = Ticket.query_by_id(payload['id'])
+        if self.entity == Entity.UNIT:
+            entry = Unit.query_by_id(payload['id'])
+        if self.entity == Entity.CONTRACT:
+            entry = Contract.query_by_id(payload['id'])
+        if entry is None:
+            raise Exception('Update semantics for %s are undefined' %
+                            ActionExecutor.entity2string(self.entity))
+        api_payload = {prop: payload[prop]
+                       for prop in payload if prop not in ActionExecutor.payment_params()}
+        entry.copy_from_dict(api_payload)
         Db.session.commit()
         return ActionExecutor.row2dict(entry)
-
-    def create_payee(self):
-        if not self.is_payee():
-            raise Exception('Entity %s cannot be a payee' %
-                            ActionExecutor.entity2string(self.entity))
-        # TODO(aditya): Setup Stripe account for payee.

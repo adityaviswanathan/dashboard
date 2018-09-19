@@ -32,8 +32,7 @@ def lROW2DICT(r): return {c.name: str(getattr(r, c.name))
 # be a total of 2 owners and 4 properties in the database because each
 # owner has many properties.
 def make_entities(num_owners=1, num_properties=1, num_managers=1,
-                  num_units=1, num_tenants=1, num_contracts=1,
-                  num_tickets=1):
+                  num_units=1, num_tenants=1, num_tickets=1, num_contracts=1):
     if num_contracts > num_units:
         raise Exception('Cannot make %d contracts for %d units' %
                         (num_contracts, num_units))
