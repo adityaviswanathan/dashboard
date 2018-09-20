@@ -6,29 +6,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Data table for {{ entityName|lower }}</title>
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script type="text/javascript" src="https://js.stripe.com/v3/"></script>
     <script type="text/javascript">
         var FLAG_DEBUG = true;
+        var stripe = Stripe("pk_test_3qohwpDjVd87yvOOfboEwxiC");
         function debug(msg) {
             if (FLAG_DEBUG) console.log(msg);
+        }
+        function payment_elems() {
+            return ["payment_name", "payment_account_number", "payment_routing_number"];
         }
         function updateEntity(el) {
             debug("Updating entity...");
             var rowContainer = el.parentElement.parentElement.children;
             debug(rowContainer);
             var payload = getTableItemValues(rowContainer, []);
-            debug("Attempting to update an entity of type {{ entityName }} with payload:");
-            debug(payload);
-            var req = new XMLHttpRequest();
-            req.open("PUT", "/{{ entityName }}");
-            req.setRequestHeader("Content-Type", "application/json");
-            req.onload = function() {
-                if (req.status === 200) {
-                    debug(req.responseText);
-                    debug("Successfully added entry, reloading page...");
-                    location.reload();
+            var payment_fields_set = true;
+            for (var i = 0; i < payment_elems().length; i++) {
+                // If the form payload does not have a payment form field or if
+                // any of the payment form fields are empty, don't trigger
+                // payment setup flow
+                if (!payload.hasOwnProperty(payment_elems()[i]) ||
+                    payload[payment_elems()[i]] === "") {
+                    payment_fields_set = false;
+                    break;
                 }
-            };
-            req.send(JSON.stringify(payload));
+            }
+            function sendHttpRequest(payload) {
+                var req = new XMLHttpRequest();
+                req.open("PUT", "/{{ entityName }}");
+                req.setRequestHeader("Content-Type", "application/json");
+                req.onload = function() {
+                    if (req.status === 200) {
+                        debug(req.responseText);
+                        debug("Successfully added entry, reloading page...");
+                        location.reload();
+                    }
+                };
+                req.send(JSON.stringify(payload));
+            }
+            if (!payment_fields_set) {
+                payload = getTableItemValues(rowContainer, payment_elems());
+                debug("Attempting to update an entity of type {{ entityName }} with payload:");
+                debug(payload);
+                sendHttpRequest(payload); 
+            } else {
+                debug("Detected bank account info, triggering payment setup flow...");
+                sendHttpRequest(payload); 
+            }
         }
         function getTableItemValues(rowContainer, filteredItems) {
             var payload = {}
@@ -83,11 +108,11 @@
             debug("Filtering entities...");
             // Kind of hacky way to get all of the inputs for a new entity entry.
             var rowContainer = el.parentElement.parentElement.children;
-            var payload = getTableItemValues(rowContainer, ["payment_name", "payment_account_number", "payment_routing_number"]);
+            var payload = getTableItemValues(rowContainer, []);
             var tableRows = [];
             var tableContainer = document.getElementById("table-container");
             for (var i = 0; i < tableContainer.children.length; i++) {
-                var tableRowColumns = getTableItemValues(tableContainer.children[i].children, ["payment_name", "payment_account_number", "payment_routing_number"]);
+                var tableRowColumns = getTableItemValues(tableContainer.children[i].children, payment_elems());
                 debug(tableRowColumns);
                 var filterTableRow = false;
                 for (var column in tableRowColumns) {
@@ -115,7 +140,6 @@
     <h2>{{ entityName|upper }}</h2>
 </div>
 </div>
-{% if entities|length > 0 %}
 <!-- NEW ENTRY FORM -->
 <div class="row">
 {% for entity in entities[:1] %}
@@ -133,6 +157,7 @@
 </div>
 <!-- END NEW ENTRY FORM -->
 <hr>
+{% if entities|length > 0 %}
 <!-- COLUMN FILTER -->
 <div class="row">
 {% for entity in entities[:1] %}

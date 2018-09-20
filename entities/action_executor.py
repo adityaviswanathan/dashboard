@@ -9,7 +9,7 @@ __author__ = 'Aditya Viswanathan'
 __email__ = 'aditya@adityaviswanathan.com'
 
 import enum
-from entities import Owner, Property, Manager, Tenant, Ticket, Unit, Contract, Db
+from entities import Owner, Property, Manager, Tenant, Ticket, Unit, Contract, Transaction, Db
 
 
 class Entity(enum.Enum):
@@ -20,6 +20,7 @@ class Entity(enum.Enum):
     TICKET = 4
     UNIT = 5
     CONTRACT = 6
+    TRANSACTION = 7
 
 
 class ActionExecutor(object):
@@ -39,6 +40,8 @@ class ActionExecutor(object):
             return 'Unit'
         if entity_enum is Entity.CONTRACT:
             return 'Contract'
+        if entity_enum is Entity.TRANSACTION:
+            return 'Transaction'
         raise Exception('Entity enum %s not recognized' % entity_enum)
 
     @staticmethod
@@ -58,6 +61,8 @@ class ActionExecutor(object):
             return Entity.UNIT
         if entity_name == 'Contract':
             return Entity.CONTRACT
+        if entity_name == 'Transaction':
+            return Entity.TRANSACTION
         raise Exception('Entity enum %s not recognized' % entity_name)
 
     @staticmethod
@@ -71,9 +76,26 @@ class ActionExecutor(object):
                                     'type': str(c.type)}
         return row_dict
 
+
     @staticmethod
     def payment_params():
-        return ['payment_name', 'payment_account_number', 'payment_routing_number']
+        return ['payment_token', 'payment_name', 'payment_account_number', 'payment_routing_number']
+
+    @staticmethod
+    def payment_token():
+        return 'payment_token'
+
+    @staticmethod
+    def payment_name():
+        return 'payment_name'
+
+    @staticmethod
+    def payment_account():
+        return 'payment_account_number'
+
+    @staticmethod
+    def payment_routing():
+        return 'payment_routing_number'
 
     def __init__(self, entity_name):
         self.entity = ActionExecutor.string2entity(entity_name)
@@ -101,6 +123,9 @@ class ActionExecutor(object):
         if self.entity == Entity.CONTRACT:
             data = [ActionExecutor.row2dict(entry)
                     for entry in Contract.query_all()]
+        if self.entity == Entity.TRANSACTION:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in Transaction.query_all()]
         return data
 
     def create(self, payload):
@@ -142,6 +167,11 @@ class ActionExecutor(object):
                 raise Exception('Entity %s was not supplied a complete payload for construction' %
                                 ActionExecutor.entity2string(self.entity))
             entry = ActionExecutor.row2dict(Contract.create(**payload))
+        if self.entity == Entity.TRANSACTION:
+            if not Transaction.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Transaction.create(**payload))
         if entry is None:
             raise Exception('Create semantics for %s are undefined' %
                             ActionExecutor.entity2string(self.entity))
@@ -152,26 +182,20 @@ class ActionExecutor(object):
         entry = None
         if self.entity == Entity.OWNER:
             entry = Owner.query_by_id(payload['id'])
-            if set(ActionExecutor.payment_params()).issubset(payload.keys()) and \
-                all([payload[payment_param] for payment_param in ActionExecutor.payment_params()]):
-                entry.create_payee(
-                    payload['payment_name'], payload['payment_account_number'], payload['payment_routing_number'])
         if self.entity == Entity.PROPERTY:
             entry = Property.query_by_id(payload['id'])
         if self.entity == Entity.MANAGER:
             entry = Manager.query_by_id(payload['id'])
         if self.entity == Entity.TENANT:
             entry = Tenant.query_by_id(payload['id'])
-            if set(ActionExecutor.payment_params()).issubset(payload.keys()) and \
-                all([payload[payment_param] for payment_param in ActionExecutor.payment_params()]):
-                entry.create_payer(
-                    payload['payment_name'], payload['payment_account_number'], payload['payment_routing_number'])
         if self.entity == Entity.TICKET:
             entry = Ticket.query_by_id(payload['id'])
         if self.entity == Entity.UNIT:
             entry = Unit.query_by_id(payload['id'])
         if self.entity == Entity.CONTRACT:
             entry = Contract.query_by_id(payload['id'])
+        if self.entity == Entity.TRANSACTION:
+            entry = Transaction.query_by_id(payload['id'])
         if entry is None:
             raise Exception('Update semantics for %s are undefined' %
                             ActionExecutor.entity2string(self.entity))
@@ -179,4 +203,19 @@ class ActionExecutor(object):
                        for prop in payload if prop not in ActionExecutor.payment_params()}
         entry.copy_from_dict(api_payload)
         Db.session.commit()
+        payment_keys = set([ActionExecutor.payment_name(),
+                            ActionExecutor.payment_account(),
+                            ActionExecutor.payment_routing()])
+        if self.entity == Entity.OWNER and payment_keys.issubset(set(payload.keys())):
+            print 'Update request for Owner includes payment details, initializing payment info...'
+            entry.create_payee(payload[ActionExecutor.payment_name()],
+                               payload[ActionExecutor.payment_account()],
+                               payload[ActionExecutor.payment_routing()])
+            Db.session.commit()
+        if self.entity == Entity.TENANT and payment_keys.issubset(set(payload.keys())):
+            print 'Update request for Tenant includes payment details, initializing payment info...'
+            entry.create_payer(payload[ActionExecutor.payment_name()],
+                               payload[ActionExecutor.payment_account()],
+                               payload[ActionExecutor.payment_routing()])
+            Db.session.commit()
         return ActionExecutor.row2dict(entry)
