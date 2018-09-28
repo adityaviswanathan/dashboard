@@ -52,7 +52,29 @@
                 sendHttpRequest(payload); 
             } else {
                 debug("Detected bank account info, triggering payment setup flow...");
-                sendHttpRequest(payload); 
+                var bankAccountParams = {
+                    country: "US",
+                    currency: "usd",
+                    account_number: payload["payment_account_number"],
+                    routing_number: payload["payment_routing_number"],
+                    account_holder_name: payload["payment_name"],
+                    account_holder_type: "individual"
+                };
+                stripe.createToken("bank_account", bankAccountParams).then(function(res) {
+                    if (res.token) {
+                        debug("Got Stripe token " + res.token.id + " for bank account");
+                        payload["payment_token"] = res.token.id;
+                        // Shed the bank details before writing sending to API server.
+                        for (var i = 0; i < payment_elems().length; i++) {
+                          delete payload[payment_elems()[i]];
+                        }
+                        sendHttpRequest(payload);
+                        debug("Attempting to update an entity of type {{ entityName }} with payload:");
+                        debug(payload);
+                    } else {
+                        debug("Failure getting Stripe token for bank account");
+                    }
+                });
             }
         }
         function getTableItemValues(rowContainer, filteredItems) {
@@ -197,7 +219,6 @@
     <!-- PAYMENT INFO -->
     {% if key == "stripe_account_id" %}
     <input class="tableitem payment_name" type="text" placeholder="account holder name">
-    {% elif key == "stripe_bank_account_id" %}
     <input class="tableitem payment_account_number" type="text" placeholder="account number">
     <input class="tableitem payment_routing_number" type="text" placeholder="routing number">
     <!-- END PAYMENT INFO -->

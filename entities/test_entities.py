@@ -31,9 +31,11 @@ def lROW2DICT(r): return {c.name: str(getattr(r, c.name))
 # parent. For example, if num_owners=2 and num_properties=2, there would
 # be a total of 2 owners and 4 properties in the database because each
 # owner has many properties.
+# Is @test_payments flag is off, no stripe accounts will be created nor will
+# any transactions.
 def make_entities(num_owners=1, num_properties=1, num_managers=1,
                   num_units=1, num_tenants=1, num_tickets=1, num_contracts=1,
-                  num_transactions=1):
+                  num_transactions=1, test_payments=True):
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
     if num_contracts > num_units:
         raise Exception('Cannot make %d contracts for %d units' %
@@ -51,15 +53,24 @@ def make_entities(num_owners=1, num_properties=1, num_managers=1,
         'contracts': [],
         'transactions': []
     }
+    def stripe_token_factory():
+        return stripe.Token.create(bank_account={
+          'country' : 'US',
+          'currency' : 'usd',
+          'account_holder_name' : app.config['DB_TEST_NAME'],
+          'account_holder_type' : 'individual',
+          'account_number' : app.config['STRIPE_TEST_ACCOUNT_NUMBER'],
+          'routing_number' : app.config['STRIPE_TEST_ROUTING_NUMBER']
+        })
     for i in range(num_owners):
         owner = Owner.create(app.config['DB_TEST_EMAIL'])
-        owner.create_payee(app.config['DB_TEST_NAME'],
-                           app.config['STRIPE_TEST_ACCOUNT_NUMBER'],
-                           app.config['STRIPE_TEST_ROUTING_NUMBER'])
+
         db.session.commit()
         db_map['owners'].append(lROW2DICT(owner))
         for i in range(num_properties):
             prop = Property.create(app.config['DB_TEST_ADDRESS'], owner.id)
+            if test_payments:
+                prop.create_payee(stripe_token_factory())
             db.session.commit()
             db_map['properties'].append(lROW2DICT(prop))
             for j in range(num_managers):
@@ -75,9 +86,8 @@ def make_entities(num_owners=1, num_properties=1, num_managers=1,
                 unit_ids.append(unit.id)
             for l in range(num_tenants):
                 tenant = Tenant.create(app.config['DB_TEST_EMAIL'], prop.id)
-                tenant.create_payer(app.config['DB_TEST_NAME'],
-                                    app.config['STRIPE_TEST_ACCOUNT_NUMBER'],
-                                    app.config['STRIPE_TEST_ROUTING_NUMBER'])
+                if test_payments:
+                    tenant.create_payer(stripe_token_factory())
                 db.session.commit()
                 db_map['tenants'].append(lROW2DICT(tenant))
                 tenant_ids.append(tenant.id)
@@ -89,20 +99,17 @@ def make_entities(num_owners=1, num_properties=1, num_managers=1,
                 contract = Contract.create(unit_ids[k], tenant_ids[l], app.config['DB_TEST_AMOUNT'])
                 db.session.commit()
                 db_map['contracts'].append(lROW2DICT(contract))
-                unit = Unit.query_by_id(unit_ids[k])
-                prop = Property.query_by_id(unit.property_id)
-                owner = Owner.query_by_id(prop.owner_id)
-                tenant = Tenant.query_by_id(tenant_ids[l])
-                for o in range(num_transactions):
-                    transaction = Transaction.create(contract.id)
-                    db.session.commit()
-                    db_map['transactions'].append(lROW2DICT(transaction))
+                if test_payments:
+                    for o in range(num_transactions):
+                        transaction = Transaction.create(contract.id)
+                        db.session.commit()
+                        db_map['transactions'].append(lROW2DICT(transaction))
     return db_map
 
 
 def makeTestDatabase(num_owners=1, num_properties=1, num_managers=1,
                      num_units=1, num_tenants=1, num_tickets=1,
-                     num_contracts=1, num_transactions=1):
+                     num_contracts=1, num_transactions=0):
     # Apply schema to new database.
     db.drop_all()
     db.create_all()
@@ -158,9 +165,9 @@ def databaseReachAll():
 class CanQueryAllEntities(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.db = makeTestDatabase(num_owners=2, num_properties=2, num_managers=3,
-                                   num_units=9, num_tenants=5, num_tickets=3,
-                                   num_contracts=5, num_transactions=0)
+        self.db = makeTestDatabase(num_owners=1, num_properties=1, num_managers=1,
+                                   num_units=1, num_tenants=1, num_tickets=1,
+                                   num_contracts=1, num_transactions=0)
 
     @classmethod
     def tearDownClass(self):
@@ -190,9 +197,9 @@ class CanQueryAllEntities(unittest.TestCase):
 class CanUpdateAllEntities(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        makeTestDatabase(num_owners=2, num_properties=2, num_managers=3,
-                         num_units=9, num_tenants=5, num_tickets=3,
-                         num_contracts=5, num_transactions=0)
+        makeTestDatabase(num_owners=1, num_properties=1, num_managers=1,
+                         num_units=1, num_tenants=1, num_tickets=1,
+                         num_contracts=1, num_transactions=0)
 
     @classmethod
     def tearDownClass(self):

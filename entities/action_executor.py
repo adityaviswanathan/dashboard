@@ -79,23 +79,11 @@ class ActionExecutor(object):
 
     @staticmethod
     def payment_params():
-        return ['payment_token', 'payment_name', 'payment_account_number', 'payment_routing_number']
+        return ['payment_token']
 
     @staticmethod
     def payment_token():
         return 'payment_token'
-
-    @staticmethod
-    def payment_name():
-        return 'payment_name'
-
-    @staticmethod
-    def payment_account():
-        return 'payment_account_number'
-
-    @staticmethod
-    def payment_routing():
-        return 'payment_routing_number'
 
     def __init__(self, entity_name):
         self.entity = ActionExecutor.string2entity(entity_name)
@@ -203,19 +191,13 @@ class ActionExecutor(object):
                        for prop in payload if prop not in ActionExecutor.payment_params()}
         entry.copy_from_dict(api_payload)
         Db.session.commit()
-        payment_keys = set([ActionExecutor.payment_name(),
-                            ActionExecutor.payment_account(),
-                            ActionExecutor.payment_routing()])
-        if self.entity == Entity.OWNER and payment_keys.issubset(set(payload.keys())):
-            print 'Update request for Owner includes payment details, initializing payment info...'
-            entry.create_payee(payload[ActionExecutor.payment_name()],
-                               payload[ActionExecutor.payment_account()],
-                               payload[ActionExecutor.payment_routing()])
+        payment_keys = set([ActionExecutor.payment_token()])
+        if self.entity == Entity.PROPERTY and payment_keys.issubset(set(payload.keys())):
+            print 'Update request for Property includes payment details, initializing payment info...'
+            entry.create_payee(payload[ActionExecutor.payment_token()])
             Db.session.commit()
         if self.entity == Entity.TENANT and payment_keys.issubset(set(payload.keys())):
             print 'Update request for Tenant includes payment details, initializing payment info...'
-            entry.create_payer(payload[ActionExecutor.payment_name()],
-                               payload[ActionExecutor.payment_account()],
-                               payload[ActionExecutor.payment_routing()])
+            entry.create_payer(payload[ActionExecutor.payment_token()])
             Db.session.commit()
         return ActionExecutor.row2dict(entry)

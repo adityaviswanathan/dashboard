@@ -81,8 +81,6 @@ class Base(db.Model):
 class Owner(Base):
     __tablename__ = 'owner'
     email = db.Column(db.Text)
-    stripe_account_id = db.Column(db.Text)
-    stripe_bank_account_id = db.Column(db.Text)
     properties = relationship('Property', backref='owner')
 
     @staticmethod
@@ -94,7 +92,7 @@ class Owner(Base):
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        filtered_cols = ['stripe_account_id', 'stripe_bank_account_id']
+        filtered_cols = []
         all_filtered_cols = set(filtered_cols + Base.base_cols())
         owner_cols = [
             col.name for col in Owner.__table__.columns if col.name not in all_filtered_cols]
@@ -110,39 +108,12 @@ class Owner(Base):
     def query_all():
         return Owner.query.all()
 
-    def create_payee(self, payee_name, account_number, routing_number, debug=False):
-        if self.stripe_account_id is not None:
-            raise Exception('Owner %s already has an account id %s' %
-                            (self.id, self.stripe_account_id))
-        if self.stripe_bank_account_id is not None:
-            raise Exception('Owner %s already has an bank account id %s' %
-                            (self.id, self.stripe_bank_account_id))
-        if debug:
-            print 'Creating Stripe account for owner with email %s' % self.email
-        account_res = stripe.Account.create(
-            type='custom', country='US', email=self.email)
-        self.stripe_account_id = account_res['id']
-        stripe_account = stripe.Account.retrieve(self.stripe_account_id)
-        if debug:
-            print 'Creating Stripe bank account for owner with name %s' % payee_name
-        owner_bank_token = stripe.Token.create(bank_account={
-            'country' : 'US',
-            'currency' : 'usd',
-            'account_holder_name': payee_name,
-            'account_holder_type' : 'individual',
-            'account_number': account_number,
-            'routing_number': routing_number
-        })
-        if debug:
-            print 'Got Stripe token %s for newly created owner bank account' % owner_bank_token
-        bank_res = stripe_account.external_accounts.create(external_account=owner_bank_token)
-        self.stripe_bank_account_id = bank_res['id']
-
 
 class Property(Base):
     __tablename__ = 'property'
     address = db.Column(db.Text)
     owner_id = db.Column(db.Integer, ForeignKey('owner.id'))
+    stripe_account_id = db.Column(db.Text)
     managers = relationship('Manager', backref='property')
     units = relationship('Unit', backref='property')
 
@@ -151,7 +122,7 @@ class Property(Base):
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        filtered_cols = []
+        filtered_cols = ['stripe_account_id', 'stripe_bank_account_id']
         all_filtered_cols = set(filtered_cols + Base.base_cols())
         prop_cols = [
             col.name for col in Property.__table__.columns if col.name not in all_filtered_cols]
@@ -181,6 +152,18 @@ class Property(Base):
             return None
         return Property.query.filter_by(owner_id=owner_id).all()
 
+    def create_payee(self, token, debug=False):
+        if self.stripe_account_id is not None:
+            raise Exception('Owner %s already has an account id %s' %
+                            (self.id, self.stripe_account_id))
+        if debug:
+            print 'Creating Stripe account for owner with email %s' % self.email
+        owner = Owner.query_by_id(self.owner_id)
+        stripe_account = stripe.Account.create(
+            type='custom', country='US', email=owner.email)
+        bank_res = stripe_account.external_accounts.create(external_account=token)
+        # bank_res.verify(amounts=[32, 45])
+        self.stripe_account_id = stripe_account['id']
 
 class Manager(Base):
     __tablename__ = 'manager'
@@ -226,12 +209,10 @@ class Tenant(Base):
     email = db.Column(db.Text)
     property_id = db.Column(db.Integer, ForeignKey('property.id'))
     stripe_account_id = db.Column(db.Text)
-    stripe_bank_account_id = db.Column(db.Text)
     tickets = relationship('Ticket', backref='tenant')
 
     @staticmethod
     def dict_has_all_required_keys(data_dict):
-        filtered_cols = ['stripe_account_id', 'stripe_bank_account_id']
         all_filtered_cols = set(filtered_cols + Base.base_cols())
         tenant_cols = [
             col.name for col in Tenant.__table__.columns if col.name not in all_filtered_cols]
@@ -261,32 +242,16 @@ class Tenant(Base):
             return None
         return Tenant.query.filter_by(property_id=property_id).all()
 
-    def create_payer(self, payer_name, account_number, routing_number, debug=False):
+    def create_payer(self, token, debug=False):
         if self.stripe_account_id is not None:
             raise Exception('Tenant %s already has an account id %s' %
                             (self.id, self.stripe_account_id))
-        if self.stripe_bank_account_id is not None:
-            raise Exception('Tenant %s already has an bank account id %s' %
-                            (self.id, self.stripe_bank_account_id))
         if debug:
             print 'Creating Stripe account for tenant with email %s' % self.email
-        customer_res = stripe.Customer.create(email=self.email)
-        self.stripe_account_id = customer_res['id']
-        stripe_account = stripe.Customer.retrieve(self.stripe_account_id)
-        if debug:
-            print 'Creating Stripe bank account for tenant with name %s' % payer_name
-        tenant_bank_token = stripe.Token.create(bank_account={
-            'country' : 'US',
-            'currency' : 'usd',
-            'account_holder_name' : payer_name,
-            'account_holder_type' : 'individual',
-            'account_number' : account_number,
-            'routing_number' : routing_number,
-        })
-        if debug:
-            print 'Got Stripe token %s for newly created tenant bank account' % tenant_bank_token
-        bank_res = stripe_account.sources.create(source=tenant_bank_token)
-        self.stripe_bank_account_id = bank_res['id']
+        stripe_customer = stripe.Customer.create(
+            email=self.email, source=token)
+        # stripe_customer.verify(amounts=[32, 45])
+        self.stripe_account_id = stripe_customer['id']
 
 
 class Ticket(Base):
@@ -407,6 +372,7 @@ class Contract(Base):
             return None
         return Contract.query.filter_by(tenant_id=tenant_id).all()
 
+
 class Transaction(Base):
     contract_id = db.Column(db.Integer, ForeignKey('contract.id'))
 
@@ -419,24 +385,21 @@ class Transaction(Base):
         customer = stripe.Customer.retrieve(tenant.stripe_account_id)
         print 'Got customer:'
         print customer
-        bank_account = customer.sources.retrieve(tenant.stripe_bank_account_id)
-        print 'Got bank account:'
-        print bank_account
         charge_res = stripe.Charge.create(
             amount=contract.rent,
             currency='usd',
             customer=customer['id'],
-            source=bank_account,
             description='test charge'
         )
+        print 'Got charge:'
+        print charge_res
         # TODO(aditya): Verify charge success
         # Transfer the payment from internal account to owner
         prop = Property.query_by_id(unit.property_id)
-        owner = Owner.query_by_id(prop.owner_id)
         transfer_res = stripe.Transfer.create(
             amount=contract.rent,
             currency='usd',
-            destination=owner.stripe_bank_account_id
+            destination=prop.stripe_account_id
         )
         # TODO(aditya): Verify transfer success
         print transfer_res

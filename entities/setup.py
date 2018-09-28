@@ -38,6 +38,7 @@ if __name__ == '__main__':
         '--num_contracts', type=int, default=1, help='number of contracts to generate per min(units, tenants)')
     parser.add_argument(
         '--num_transactions', type=int, default=0, help='number of transactions to generate per contract')
+    parser.add_argument('--no_payments', action='store_false')
     args = parser.parse_args()
     migrate = Migrate(app, db)
     migrate.init_app(app)
@@ -50,4 +51,5 @@ if __name__ == '__main__':
                   num_tenants=args.num_tenants,
                   num_tickets=args.num_tickets,
                   num_contracts=args.num_contracts,
-                  num_transactions=args.num_transactions)
+                  num_transactions=args.num_transactions,
+                  test_payments=args.no_payments)
