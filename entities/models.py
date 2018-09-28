@@ -2,8 +2,8 @@
 
 '''
 The entities in the app have has-many relationships in the following manner:
-- Owner <-> Bank account (payee)
--- Property
+- Owner
+-- Property <-> Bank account (payee)
 --- Manager
 --- Tenant <-> Bank account/cc (payer)
 ---- Ticket
@@ -19,7 +19,9 @@ import stripe
 from api import app
 from db import db
 from sqlalchemy import ForeignKey
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class Base(db.Model):
@@ -80,12 +82,15 @@ class Base(db.Model):
 
 class Owner(Base):
     __tablename__ = 'owner'
+    password_hash = db.Column(db.String(128))
     email = db.Column(db.Text)
     properties = relationship('Property', backref='owner')
 
+
     @staticmethod
-    def create(email):
+    def create(password, email):
         owner = Owner()
+        owner.set_password(password)
         owner.email = email
         owner.save()
         return owner
@@ -107,6 +112,12 @@ class Owner(Base):
     @staticmethod
     def query_all():
         return Owner.query.all()
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 class Property(Base):
@@ -167,6 +178,7 @@ class Property(Base):
 
 class Manager(Base):
     __tablename__ = 'manager'
+    password_hash = db.Column(db.String(128))
     email = db.Column(db.Text)
     # Assuming a manager runs at most one property.
     property_id = db.Column(db.Integer, ForeignKey('property.id'))
@@ -180,8 +192,9 @@ class Manager(Base):
         return set(manager_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
-    def create(email, property_id):
+    def create(password, email, property_id):
         manager = Manager()
+        manager.set_password(password)
         manager.email = email
         manager.set_id('property_id', property_id)
         manager.save()
@@ -203,9 +216,16 @@ class Manager(Base):
             return None
         return Manager.query.filter_by(property_id=property_id).all()
 
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
 
 class Tenant(Base):
     __tablename__ = 'tenant'
+    password_hash = db.Column(db.String(128))
     email = db.Column(db.Text)
     property_id = db.Column(db.Integer, ForeignKey('property.id'))
     stripe_account_id = db.Column(db.Text)
@@ -219,8 +239,9 @@ class Tenant(Base):
         return set(tenant_cols).issubset(set(data_dict.keys()))
 
     @staticmethod
-    def create(email, property_id):
+    def create(password, email, property_id):
         tenant = Tenant()
+        tenant.set_password(password)
         tenant.email = email
         tenant.set_id('property_id', property_id)
         tenant.save()
@@ -252,6 +273,12 @@ class Tenant(Base):
             email=self.email, source=token)
         # stripe_customer.verify(amounts=[32, 45])
         self.stripe_account_id = stripe_customer['id']
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 class Ticket(Base):

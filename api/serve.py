@@ -23,11 +23,13 @@ from entities import Db, ActionExecutor
 
 ALLOWED_EXTENSIONS = set(['xlsx', 'csv', 'txt'])
 
+
 def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Entity API (supports GET/POST/PUT semantics).
+
 @app.route('/<entity_name>', methods=['GET'])
 def get_entity(entity_name):
     data = []
@@ -38,7 +40,13 @@ def get_entity(entity_name):
         print 'Found %d records' % len(data)
     except Exception as e:
         print(e)
-    return render_template('entity_table.html', entityName=entity_name, entities=data)
+    read_only_properties = ['id', 'password_hash', 'updated_on',
+                            'created_on', 'stripe_account_id', 'stripe_bank_account_id']
+    return render_template('entity_table.html',
+                           entityName=entity_name,
+                           entities=data,
+                           readOnly=read_only_properties)
+
 
 @app.route('/<entity_name>', methods=['POST'])
 def add_entity(entity_name):
@@ -52,6 +60,7 @@ def add_entity(entity_name):
         print(e)
     return jsonify(entry)
 
+
 @app.route('/<entity_name>', methods=['PUT'])
 def update_entity(entity_name):
     entry = {}
@@ -63,6 +72,7 @@ def update_entity(entity_name):
     except Exception as e:
         print(e)
     return jsonify(entry)
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -92,7 +102,8 @@ def index():
                 ' is the title axis.'
             print 'Decided that ' + str(axis_decision.date_index) + \
                 ' is the date axis start index and ' + \
-                str(axis_decision.title_index) + ' is the title axis start index.'
+                str(axis_decision.title_index) + \
+                ' is the title axis start index.'
             traverser = ReportTraverser(data_file,
                                         axis_decision.date_axis,
                                         axis_decision.date_index,
@@ -103,20 +114,24 @@ def index():
             titles_ptree = ParseTree('get_titles(0)', [traverser])
             print 'Constructed ParseTree.'
             d = [date.val for date in dates_ptree.evaluate_tree(is_list=True)]
-            t = [title.val for title in titles_ptree.evaluate_tree(is_list=True)]
+            t = [title.val for title in titles_ptree.evaluate_tree(
+                is_list=True)]
             print 'Fetched headers.'
             r = []
             for title in t:
                 if not title.strip():
                     r.append([''] * len(d[1:]))
                     continue
-                title_ptree = ParseTree('get_cells_by_title(0, ' + title  + ')', [traverser])
-                r.append([date.val for date in title_ptree.evaluate_tree(is_list=True)])
+                title_ptree = ParseTree(
+                    'get_cells_by_title(0, ' + title + ')', [traverser])
+                r.append(
+                    [date.val for date in title_ptree.evaluate_tree(is_list=True)])
             print 'Fetched base report data.'
             funcs = Function.NAMES
             return render_template('home.html', dates=d, titles=t, rows=r, funcs=funcs, filename=data_file)
     # GET request default case.
     return render_template('home.html')
+
 
 @app.route('/execute', methods=['POST'])
 def execute_formula():
@@ -141,22 +156,23 @@ def execute_formula():
         list_parse_output = ptree.evaluate_tree(is_list=True)
         print list_parse_output
         list_data = {
-            'data' : [i.val for i in list_parse_output],
-            'titles' : [i.title.val if i.title is not None else i.title for i in list_parse_output],
-            'dates' : [i.date.val if i.date is not None else i.date for i in list_parse_output]
+            'data': [i.val for i in list_parse_output],
+            'titles': [i.title.val if i.title is not None else i.title for i in list_parse_output],
+            'dates': [i.date.val if i.date is not None else i.date for i in list_parse_output]
         }
         print 'Sending the following list data response to client: ' +  \
             str(list_data)
         return jsonify(list_data)
     parse_output = ptree.evaluate_tree()
     singleton_data = {
-        'data' : parse_output.val,
-        'titles' : parse_output.title.val,
-        'dates' : parse_output.date.val
+        'data': parse_output.val,
+        'titles': parse_output.title.val,
+        'dates': parse_output.date.val
     }
     print 'Sending the following singleton data response to client: ' +  \
         str(singleton_data)
     return jsonify(singleton_data)
+
 
 if __name__ == '__main__':
     Db.init_app(app)

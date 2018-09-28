@@ -22,6 +22,7 @@ my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(my_path, os.pardir)))
 from api import app
 
+
 def lROW2DICT(r): return {c.name: str(getattr(r, c.name))
                           for c in r.__table__.columns}
 
@@ -33,6 +34,8 @@ def lROW2DICT(r): return {c.name: str(getattr(r, c.name))
 # owner has many properties.
 # Is @test_payments flag is off, no stripe accounts will be created nor will
 # any transactions.
+
+
 def make_entities(num_owners=1, num_properties=1, num_managers=1,
                   num_units=1, num_tenants=1, num_tickets=1, num_contracts=1,
                   num_transactions=1, test_payments=True):
@@ -53,17 +56,19 @@ def make_entities(num_owners=1, num_properties=1, num_managers=1,
         'contracts': [],
         'transactions': []
     }
+
     def stripe_token_factory():
         return stripe.Token.create(bank_account={
-          'country' : 'US',
-          'currency' : 'usd',
-          'account_holder_name' : app.config['DB_TEST_NAME'],
-          'account_holder_type' : 'individual',
-          'account_number' : app.config['STRIPE_TEST_ACCOUNT_NUMBER'],
-          'routing_number' : app.config['STRIPE_TEST_ROUTING_NUMBER']
+            'country': 'US',
+            'currency': 'usd',
+            'account_holder_name': app.config['DB_TEST_NAME'],
+            'account_holder_type': 'individual',
+            'account_number': app.config['STRIPE_TEST_ACCOUNT_NUMBER'],
+            'routing_number': app.config['STRIPE_TEST_ROUTING_NUMBER']
         })
     for i in range(num_owners):
-        owner = Owner.create(app.config['DB_TEST_EMAIL'])
+        owner = Owner.create(
+            app.config['DB_TEST_PASSWORD'], app.config['DB_TEST_EMAIL'])
 
         db.session.commit()
         db_map['owners'].append(lROW2DICT(owner))
@@ -74,7 +79,8 @@ def make_entities(num_owners=1, num_properties=1, num_managers=1,
             db.session.commit()
             db_map['properties'].append(lROW2DICT(prop))
             for j in range(num_managers):
-                manager = Manager.create(app.config['DB_TEST_EMAIL'], prop.id)
+                manager = Manager.create(
+                    app.config['DB_TEST_PASSWORD'], app.config['DB_TEST_EMAIL'], prop.id)
                 db.session.commit()
                 db_map['managers'].append(lROW2DICT(manager))
             unit_ids = []
@@ -85,7 +91,8 @@ def make_entities(num_owners=1, num_properties=1, num_managers=1,
                 db_map['units'].append(lROW2DICT(unit))
                 unit_ids.append(unit.id)
             for l in range(num_tenants):
-                tenant = Tenant.create(app.config['DB_TEST_EMAIL'], prop.id)
+                tenant = Tenant.create(
+                    app.config['DB_TEST_PASSWORD'], app.config['DB_TEST_EMAIL'], prop.id)
                 if test_payments:
                     tenant.create_payer(stripe_token_factory())
                 db.session.commit()
@@ -96,7 +103,8 @@ def make_entities(num_owners=1, num_properties=1, num_managers=1,
                     db.session.commit()
                     db_map['tickets'].append(lROW2DICT(ticket))
             for n in range(num_contracts):
-                contract = Contract.create(unit_ids[k], tenant_ids[l], app.config['DB_TEST_AMOUNT'])
+                contract = Contract.create(
+                    unit_ids[k], tenant_ids[l], app.config['DB_TEST_AMOUNT'])
                 db.session.commit()
                 db_map['contracts'].append(lROW2DICT(contract))
                 if test_payments:
@@ -120,11 +128,14 @@ def makeTestDatabase(num_owners=1, num_properties=1, num_managers=1,
                          num_units=num_units, num_tenants=num_tenants, num_tickets=num_tickets,
                          num_contracts=num_contracts, num_transactions=num_transactions)
 
+
 def destroyTestDatabase():
     db.session.commit()
     db.drop_all()
 
 # Walks schema hierarchy from top-most query, returning dictionary repr of db.
+
+
 def databaseReachAll():
     owners = Owner.query_all()
     output_obj_dict = {'owners': [],
@@ -155,11 +166,12 @@ def databaseReachAll():
                 contracts = Contract.query_by_unit_id(unit.id)
                 for contract in contracts:
                     output_obj_dict['contracts'].append(lROW2DICT(contract))
-                    transactions = Transaction.query_by_contract_id(contract.id)
+                    transactions = Transaction.query_by_contract_id(
+                        contract.id)
                     for transaction in transactions:
-                        output_obj_dict['transactions'].append(lROW2DICT(transaction))
+                        output_obj_dict['transactions'].append(
+                            lROW2DICT(transaction))
     return output_obj_dict
-
 
 
 class CanQueryAllEntities(unittest.TestCase):
@@ -194,6 +206,7 @@ class CanQueryAllEntities(unittest.TestCase):
         self.assertEqual(len(self.db['transactions']), len(reach_all_db['transactions']))
         self.assertListEqual(self.db['transactions'], reach_all_db['transactions'])
 
+
 class CanUpdateAllEntities(unittest.TestCase):
     @classmethod
     def setUpClass(self):
@@ -214,6 +227,7 @@ class CanUpdateAllEntities(unittest.TestCase):
                      'units': [],
                      'contracts': [],
                      'transactions': []}
+
         def perturb(input_obj_dict):
             output_obj_dict = copy.deepcopy(input_obj_dict)
             filtered_cols = ['created_on', 'updated_on', 'rent']
@@ -258,13 +272,15 @@ class CanUpdateAllEntities(unittest.TestCase):
                         new_contract = perturb(lROW2DICT(contract))
                         contract.copy_from_dict(new_contract)
                         update_db['contracts'].append(new_contract)
-                        transactions = Transaction.query_by_contract_id(contract.id)
+                        transactions = Transaction.query_by_contract_id(
+                            contract.id)
                         for transaction in transactions:
                             new_transaction = perturb(lROW2DICT(transaction))
                             transaction.copy_from_dict(new_transaction)
                             update_db['transaction'].append(new_transaction)
         db.session.commit()
         # Ignore @filter_keys when making assertions (e.g. "updated_on" timestamp).
+
         def remove_inner_keys(input_dict, filter_keys=['updated_on']):
             updated_data_dict = {}
             for outerkey in input_dict.keys():
@@ -297,6 +313,7 @@ class CanUpdateAllEntities(unittest.TestCase):
         self.assertListEqual(updated_data_dict['contracts'], found_data_dict['contracts'])
         self.assertEqual(len(update_db['transactions']), len(reach_all_db['transactions']))
         self.assertListEqual(updated_data_dict['transactions'], found_data_dict['transactions'])
+
 
 # TODO(aditya): Add test for PUT ops via copy_from_dict().
 if __name__ == '__main__':

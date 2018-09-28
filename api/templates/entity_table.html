@@ -167,7 +167,7 @@
 {% for entity in entities[:1] %}
 {% for key, _ in entity.iteritems() %}
 <div class="column">
-    {% if key not in ["id", "updated_on", "created_on", "stripe_account_id", "stripe_bank_account_id"] %}
+    {% if key not in readOnly %}
     <input class="tableitem {{ key }}" type="text">
     {% endif %}
 </div>
@@ -226,7 +226,7 @@
     <!-- COLUMN VALUE EXISTS -->
     {% else %}
     <!-- MUTABLE COLUMNS -->
-    {% if key not in ["id", "updated_on", "created_on", "stripe_account_id", "stripe_bank_account_id"] %}
+    {% if key not in readOnly %}
     <!-- COLUMN INPUT CASED BY DATA TYPE -->
     {% if value["type"] == "DATETIME" %}
     <input class="tableitem {{ key }}" type="date" value={{ value["data"] }}>
@@ -236,7 +236,13 @@
     <!-- END COLUMN INPUT CASED BY DATA TYPE -->
     {% else %}
     <!-- IMMUTABLE COLUMNS -->
+    {% if key == "password_hash" %}
+    {% if value %}
+    <p>&#10004;</p> <!-- CHECKMARK IF PASSWORD IS SET -->
+    {% endif %}
+    {% else %}
     <p class="tableitem {{ key }}">{{ value["data"] }}</p>
+    {% endif %}
     {% endif %}
     <!-- END COLUMN VALUE EXISTENCE CASE -->
     {% endif %}
