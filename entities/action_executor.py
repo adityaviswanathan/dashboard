@@ -9,7 +9,7 @@ __author__ = 'Aditya Viswanathan'
 __email__ = 'aditya@adityaviswanathan.com'
 
 import enum
-from entities import Owner, Property, Manager, Tenant, Ticket, Unit, Contract, Transaction, Db
+from entities import Owner, Property, Manager, Tenant, Ticket, Unit, Contract, Contractor, ContractPayment, TicketPayment, Db
 
 
 class Entity(enum.Enum):
@@ -20,7 +20,9 @@ class Entity(enum.Enum):
     TICKET = 4
     UNIT = 5
     CONTRACT = 6
-    TRANSACTION = 7
+    CONTRACTOR = 7
+    CONTRACTPAYMENT = 8
+    TICKETPAYMENT = 9
 
 
 class ActionExecutor(object):
@@ -40,8 +42,12 @@ class ActionExecutor(object):
             return 'Unit'
         if entity_enum is Entity.CONTRACT:
             return 'Contract'
-        if entity_enum is Entity.TRANSACTION:
-            return 'Transaction'
+        if entity_enum is Entity.CONTRACTOR:
+            return 'Contractor'
+        if entity_enum is Entity.CONTRACTPAYMENT:
+            return 'Contractpayment'
+        if entity_enum is Entity.TICKETPAYMENT:
+            return 'Ticketpayment'
         raise Exception('Entity enum %s not recognized' % entity_enum)
 
     @staticmethod
@@ -61,8 +67,12 @@ class ActionExecutor(object):
             return Entity.UNIT
         if entity_name == 'Contract':
             return Entity.CONTRACT
-        if entity_name == 'Transaction':
-            return Entity.TRANSACTION
+        if entity_name == 'Contractor':
+            return Entity.CONTRACTOR
+        if entity_name == 'Contractpayment':
+            return Entity.CONTRACTPAYMENT
+        if entity_name == 'Ticketpayment':
+            return Entity.TICKETPAYMENT
         raise Exception('Entity enum %s not recognized' % entity_name)
 
     @staticmethod
@@ -111,9 +121,15 @@ class ActionExecutor(object):
         if self.entity == Entity.CONTRACT:
             data = [ActionExecutor.row2dict(entry)
                     for entry in Contract.query_all()]
-        if self.entity == Entity.TRANSACTION:
+        if self.entity == Entity.CONTRACTOR:
             data = [ActionExecutor.row2dict(entry)
-                    for entry in Transaction.query_all()]
+                    for entry in Contractor.query_all()]
+        if self.entity == Entity.CONTRACTPAYMENT:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in ContractPayment.query_all()]
+        if self.entity == Entity.TICKETPAYMENT:
+            data = [ActionExecutor.row2dict(entry)
+                    for entry in TicketPayment.query_all()]
         return data
 
     def create(self, payload):
@@ -155,8 +171,18 @@ class ActionExecutor(object):
                 raise Exception('Entity %s was not supplied a complete payload for construction' %
                                 ActionExecutor.entity2string(self.entity))
             entry = ActionExecutor.row2dict(Contract.create(**payload))
-        if self.entity == Entity.TRANSACTION:
-            if not Transaction.dict_has_all_required_keys(payload):
+        if self.entity == Entity.CONTRACTOR:
+            if not Contractor.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Contract.create(**payload))
+        if self.entity == Entity.CONTRACTPAYMENT:
+            if not ContractPayment.dict_has_all_required_keys(payload):
+                raise Exception('Entity %s was not supplied a complete payload for construction' %
+                                ActionExecutor.entity2string(self.entity))
+            entry = ActionExecutor.row2dict(Transaction.create(**payload))
+        if self.entity == Entity.TICKETPAYMENT:
+            if not TicketPayment.dict_has_all_required_keys(payload):
                 raise Exception('Entity %s was not supplied a complete payload for construction' %
                                 ActionExecutor.entity2string(self.entity))
             entry = ActionExecutor.row2dict(Transaction.create(**payload))
@@ -182,8 +208,12 @@ class ActionExecutor(object):
             entry = Unit.query_by_id(payload['id'])
         if self.entity == Entity.CONTRACT:
             entry = Contract.query_by_id(payload['id'])
-        if self.entity == Entity.TRANSACTION:
-            entry = Transaction.query_by_id(payload['id'])
+        if self.entity == Entity.CONTRACTOR:
+            entry = Contractor.query_by_id(payload['id'])
+        if self.entity == Entity.CONTRACTPAYMENT:
+            entry = ContractPayment.query_by_id(payload['id'])
+        if self.entity == Entity.TICKETPAYMENT:
+            entry = TicketPayment.query_by_id(payload['id'])
         if entry is None:
             raise Exception('Update semantics for %s are undefined' %
                             ActionExecutor.entity2string(self.entity))
@@ -194,10 +224,14 @@ class ActionExecutor(object):
         payment_keys = set([ActionExecutor.payment_token()])
         if self.entity == Entity.PROPERTY and payment_keys.issubset(set(payload.keys())):
             print 'Update request for Property includes payment details, initializing payment info...'
-            entry.create_payee(payload[ActionExecutor.payment_token()])
+            entry.create_payments(payload[ActionExecutor.payment_token()])
             Db.session.commit()
         if self.entity == Entity.TENANT and payment_keys.issubset(set(payload.keys())):
             print 'Update request for Tenant includes payment details, initializing payment info...'
-            entry.create_payer(payload[ActionExecutor.payment_token()])
+            entry.create_payments(payload[ActionExecutor.payment_token()])
+            Db.session.commit()
+        if self.entity == Entity.CONTRACTOR and payment_keys.issubset(set(payload.keys())):
+            print 'Update request for Contractor includes payment details, initializing payment info...'
+            entry.create_payments(payload[ActionExecutor.payment_token()])
             Db.session.commit()
         return ActionExecutor.row2dict(entry)
